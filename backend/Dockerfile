@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1
+# Build with repo root as context, OR from backend/ with:
+#   docker build -f Dockerfile -t ride-backend .
+# Compose uses: context ../../backend, dockerfile Dockerfile
+
+FROM eclipse-temurin:21-jdk-alpine AS build
+WORKDIR /workspace
+COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
+COPY gradle ./gradle
+COPY src ./src
+RUN chmod +x gradlew && ./gradlew bootJar --no-daemon -x test
+
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+RUN addgroup -S ride && adduser -S ride -G ride
+COPY --from=build /workspace/build/libs/*.jar /app/app.jar
+USER ride
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

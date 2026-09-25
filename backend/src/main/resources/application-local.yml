@@ -1,0 +1,13 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+
+logging:
+  level:
+    com.rideplatform: DEBUG
+    org.springframework.security: INFO
+
+springdoc:
+  swagger-ui:
+    enabled: true

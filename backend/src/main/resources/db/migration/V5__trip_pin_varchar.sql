@@ -1,0 +1,1 @@
+ALTER TABLE rides ALTER COLUMN trip_pin TYPE VARCHAR(4);

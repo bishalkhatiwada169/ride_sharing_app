@@ -1,0 +1,16 @@
+package com.rideplatform.rides.domain;
+
+public enum RideStatus {
+    REQUESTED,
+    SEARCHING_DRIVER,
+    DRIVER_ACCEPTED,
+    DRIVER_ARRIVING,
+    DRIVER_ARRIVED,
+    RIDE_STARTED,
+    RIDE_COMPLETED,
+    CANCELLED_BY_PASSENGER,
+    CANCELLED_BY_DRIVER,
+    NO_DRIVER_FOUND,
+    EXPIRED,
+    PAYMENT_FAILED
+}
