@@ -20,8 +20,16 @@ See `src/config/env.ts` for the active API base URL.
    - `sdk.dir=...`
    - `GOOGLE_MAPS_ANDROID_API_KEY=...`
 4. Rebuild the native app (`npm run android`). Hot reload does not apply manifest key changes.
-5. Open Home / Booking / Active ride — map should pan and zoom over Kathmandu.
+5. Open Home — map should pan and zoom; with MAP-2, grant location to center on your GPS.
 
 Without a key, the app still builds; map tiles will be blank/grey until the key is configured.
+
+## MAP-2: Passenger GPS (foreground)
+
+1. Android requests `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` when Home is focused (no background location).
+2. Grant permission → blue current-location indicator + camera centers on you.
+3. Pan the map → follow mode pauses; tap the ◎ button to recenter and resume follow.
+4. Deny permission or turn off system location → banner with settings action; app must not crash.
+5. Coordinates stay on-device in this phase (not sent to the backend).
 
 Windows note: very long project paths under OneDrive can break `assembleDebug` (MAX_PATH / CMake object path limits). Prefer a shorter local path if native builds fail.

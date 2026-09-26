@@ -1,12 +1,18 @@
-import React, {useState} from 'react';
-import {Alert, StyleSheet, Text, View} from 'react-native';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {Alert, Pressable, StyleSheet, Text, View} from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Screen} from '../../components/ui/Screen';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {
+  MapPlaceholder,
+  type MapPoint,
+} from '../../components/MapPlaceholder';
+import {BottomSheet} from '../../components/ui/Sheet';
 import {Button} from '../../components/ui/Button';
-import {TextField} from '../../components/ui/TextField';
-import {Card} from '../../components/ui/Card';
-import {MapPlaceholder} from '../../components/MapPlaceholder';
+import {FloatingMapButton} from '../../components/ui/FloatingMapButton';
+import {LocationRow} from '../../components/ui/LocationRow';
+import {FareBlock} from '../../components/ui/FareBlock';
 import {useAuth} from '../../state/AuthContext';
+import {usePassengerLocation} from '../../hooks/usePassengerLocation';
 import {bookRide, createQuote} from '../../services/ride-api';
 import {
   formatDistance,
@@ -15,189 +21,292 @@ import {
   parseApiError,
 } from '../../utils/format';
 import type {Quote, VehicleType} from '../../types/ride';
-import {colors, spacing, typography} from '../../theme/tokens';
+import {colors, radius, spacing, typography} from '../../theme/tokens';
 import type {RootStackParamList} from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Booking'>;
 
-const VEHICLES: VehicleType[] = ['ECONOMY', 'COMFORT', 'XL'];
+const VEHICLES: {type: VehicleType; title: string}[] = [
+  {type: 'ECONOMY', title: 'Standard'},
+  {type: 'COMFORT', title: 'Comfort'},
+  {type: 'XL', title: 'XL'},
+];
 
-export function BookingScreen({navigation}: Props) {
+export function BookingScreen({navigation, route}: Props) {
+  const insets = useSafeAreaInsets();
   const {session} = useAuth();
-  const [pickupAddress, setPickupAddress] = useState('');
-  const [dropoffAddress, setDropoffAddress] = useState('');
-  const [pickupLat, setPickupLat] = useState('');
-  const [pickupLng, setPickupLng] = useState('');
-  const [dropoffLat, setDropoffLat] = useState('');
-  const [dropoffLng, setDropoffLng] = useState('');
+  const location = usePassengerLocation(true);
+  const params = route.params;
+
+  const destination = params?.destinationLabel?.trim() ?? '';
+  const dropLat = params?.dropoffLat;
+  const dropLng = params?.dropoffLng;
+  const destinationSecondary = params?.destinationSecondary;
+
   const [vehicleType, setVehicleType] = useState<VehicleType>('ECONOMY');
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const confirmLock = useRef(false);
 
-  async function onQuote() {
-    if (!session) {
+  const pickupReady = !!location.coords;
+  const destinationReady =
+    !!destination &&
+    dropLat != null &&
+    dropLng != null &&
+    !Number.isNaN(dropLat) &&
+    !Number.isNaN(dropLng);
+
+  useEffect(() => {
+    if (!destinationReady) {
+      navigation.replace('DestinationSearch');
+    }
+  }, [destinationReady, navigation]);
+
+  useEffect(() => {
+    if (!session || !location.coords || !destinationReady) {
       return;
     }
-    if (!pickupAddress.trim() || !dropoffAddress.trim()) {
-      setError('Enter pickup and destination addresses');
-      return;
-    }
-    const pLat = Number(pickupLat);
-    const pLng = Number(pickupLng);
-    const dLat = Number(dropoffLat);
-    const dLng = Number(dropoffLng);
-    if ([pLat, pLng, dLat, dLng].some(n => Number.isNaN(n))) {
-      setError('Enter valid latitude/longitude (map picker not available yet)');
-      return;
-    }
+    let cancelled = false;
     setLoading(true);
     setError(null);
     setQuote(null);
-    try {
-      const q = await createQuote(session.accessToken, {
-        vehicleType,
-        pickupLat: pLat,
-        pickupLng: pLng,
-        dropoffLat: dLat,
-        dropoffLng: dLng,
-        pickupAddress: pickupAddress.trim(),
-        dropoffAddress: dropoffAddress.trim(),
+    void (async () => {
+      try {
+        const next = await createQuote(session.accessToken, {
+          vehicleType,
+          pickupLat: location.coords!.latitude,
+          pickupLng: location.coords!.longitude,
+          dropoffLat: dropLat!,
+          dropoffLng: dropLng!,
+          pickupAddress: 'Current location',
+          dropoffAddress: destination,
+        });
+        if (!cancelled) {
+          setQuote(next);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(parseApiError(e));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    session,
+    location.coords?.latitude,
+    location.coords?.longitude,
+    destinationReady,
+    vehicleType,
+    destination,
+    dropLat,
+    dropLng,
+  ]);
+
+  const markers = useMemo(() => {
+    const list: MapPoint[] = [];
+    if (location.coords) {
+      list.push({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        title: 'Pickup',
+        kind: 'pickup',
       });
-      setQuote(q);
-    } catch (e) {
-      setError(parseApiError(e));
-    } finally {
-      setLoading(false);
     }
-  }
+    if (destinationReady) {
+      list.push({
+        latitude: dropLat!,
+        longitude: dropLng!,
+        title: destination,
+        kind: 'dropoff',
+      });
+    }
+    return list;
+  }, [location.coords, destinationReady, dropLat, dropLng, destination]);
 
   async function onConfirm() {
-    if (!session || !quote) return;
-    setLoading(true);
+    if (!session || !quote || confirming || confirmLock.current) {
+      return;
+    }
+    confirmLock.current = true;
+    setConfirming(true);
     setError(null);
     try {
       const ride = await bookRide(session.accessToken, quote.id, 'CASH');
       navigation.replace('ActiveRide', {rideId: ride.id});
     } catch (e) {
-      setError(parseApiError(e));
-    } finally {
-      setLoading(false);
+      setError(parseApiError(e) || "Couldn't request the ride. Try again.");
+      confirmLock.current = false;
+      setConfirming(false);
     }
   }
 
+  const vehicleTitle =
+    VEHICLES.find(v => v.type === vehicleType)?.title ?? vehicleType;
+
+  if (!destinationReady) {
+    return <View style={styles.root} />;
+  }
+
   return (
-    <Screen scroll title="Book a ride" subtitle="Server-priced fare quote">
-      <MapPlaceholder label="Route preview placeholder" height={140} />
-      <Text style={styles.hint}>
-        Map picking is not available yet. Enter addresses and coordinates
-        manually (e.g. lat 27.7172, lng 85.3240 for local testing).
-      </Text>
-
-      <TextField
-        label="Pickup address"
-        value={pickupAddress}
-        onChangeText={setPickupAddress}
-        placeholder="e.g. Thamel"
+    <View style={styles.root}>
+      <MapPlaceholder
+        fill
+        locationEnabled
+        showLabel={false}
+        showRecenterButton={false}
+        followUser={false}
+        fitToMarkers
+        markers={markers}
+        controlsBottomOffset={220}
       />
-      <View style={styles.row}>
-        <TextField
-          label="Pickup lat"
-          value={pickupLat}
-          onChangeText={setPickupLat}
-          keyboardType="decimal-pad"
-          style={styles.half}
+
+      <View style={[styles.top, {top: insets.top + spacing.sm}]}>
+        <FloatingMapButton
+          icon="chevronRight"
+          accessibilityLabel="Go back"
+          onPress={() => navigation.goBack()}
+          style={styles.backFlip}
         />
-        <TextField
-          label="Pickup lng"
-          value={pickupLng}
-          onChangeText={setPickupLng}
-          keyboardType="decimal-pad"
-          style={styles.half}
-        />
+        <Pressable
+          onPress={() => navigation.replace('DestinationSearch')}
+          style={styles.changeDest}>
+          <Text style={styles.changeDestText}>Change</Text>
+        </Pressable>
       </View>
 
-      <TextField
-        label="Destination"
-        value={dropoffAddress}
-        onChangeText={setDropoffAddress}
-        placeholder="e.g. Patan"
-      />
-      <View style={styles.row}>
-        <TextField
-          label="Drop lat"
-          value={dropoffLat}
-          onChangeText={setDropoffLat}
-          keyboardType="decimal-pad"
-          style={styles.half}
-        />
-        <TextField
-          label="Drop lng"
-          value={dropoffLng}
-          onChangeText={setDropoffLng}
-          keyboardType="decimal-pad"
-          style={styles.half}
-        />
-      </View>
+      <View style={styles.sheetWrap} pointerEvents="box-none">
+        <BottomSheet floating>
+          <Text style={styles.title}>Confirm your ride</Text>
 
-      <Text style={styles.label}>Vehicle</Text>
-      <View style={styles.row}>
-        {VEHICLES.map(v => (
-          <Button
-            key={v}
-            label={v}
-            variant={vehicleType === v ? 'primary' : 'ghost'}
-            style={styles.chip}
-            onPress={() => setVehicleType(v)}
+          <LocationRow
+            pickupLabel={
+              pickupReady ? 'Current location' : 'Finding your location…'
+            }
+            destinationLabel={destination}
           />
-        ))}
-      </View>
+          {destinationSecondary ? (
+            <Text style={styles.destSub} numberOfLines={2}>
+              {destinationSecondary}
+            </Text>
+          ) : null}
 
-      {!!error && <Text style={styles.error}>{error}</Text>}
+          <View style={styles.vehicleRow}>
+            {VEHICLES.map(v => {
+              const on = vehicleType === v.type;
+              return (
+                <Pressable
+                  key={v.type}
+                  onPress={() => setVehicleType(v.type)}
+                  style={[styles.chip, on && styles.chipOn]}>
+                  <Text style={[styles.chipText, on && styles.chipTextOn]}>
+                    {v.title}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-      <Button label="Get fare quote" onPress={onQuote} loading={loading && !quote} />
+          {loading && !quote ? (
+            <Text style={styles.quiet}>Getting fare…</Text>
+          ) : null}
 
-      {quote && (
-        <Card>
-          <Text style={styles.quoteTitle}>Fare quote</Text>
-          <Text style={styles.quoteFare}>
-            {formatMoney(quote.totalMinor, quote.currency)}
-          </Text>
-          <Text style={styles.meta}>
-            {formatDistance(quote.distanceM)} · {formatDuration(quote.durationS)} ·{' '}
-            {quote.vehicleType}
-          </Text>
-          <Text style={styles.meta}>
-            Expires {new Date(quote.expiresAt).toLocaleTimeString()}
-          </Text>
+          {quote ? (
+            <>
+              <View style={styles.divider} />
+              <FareBlock
+                rideLabel={vehicleTitle}
+                fare={formatMoney(quote.totalMinor, quote.currency)}
+                meta={`~${formatDuration(quote.durationS)} · ${formatDistance(quote.distanceM)} · Cash`}
+              />
+            </>
+          ) : null}
+
+          {!!error && <Text style={styles.error}>{error}</Text>}
+
           <Button
-            label="Confirm ride"
+            label={
+              confirming
+                ? 'Confirming…'
+                : loading
+                  ? 'Getting fare…'
+                  : 'Confirm ride'
+            }
+            loading={confirming || (loading && !quote)}
+            disabled={!quote || !pickupReady || confirming}
             onPress={() =>
               Alert.alert(
-                'Confirm booking',
-                `Book for ${formatMoney(quote.totalMinor, quote.currency)} (cash)?`,
+                'Confirm ride',
+                quote
+                  ? `Book for ${formatMoney(quote.totalMinor, quote.currency)}?`
+                  : 'Confirm this trip?',
                 [
                   {text: 'Back', style: 'cancel'},
                   {text: 'Confirm', onPress: () => void onConfirm()},
                 ],
               )
             }
-            loading={loading}
           />
-        </Card>
-      )}
-    </Screen>
+        </BottomSheet>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
-  half: {flex: 1},
-  chip: {flexGrow: 1},
-  label: {...typography.label, color: colors.inkSoft, textTransform: 'uppercase'},
-  error: {...typography.caption, color: colors.danger},
-  quoteTitle: {...typography.bodyStrong, color: colors.ink},
-  quoteFare: {...typography.title, color: colors.accent},
-  meta: {...typography.caption, color: colors.inkSoft},
-  hint: {...typography.caption, color: colors.inkSoft, marginBottom: spacing.sm},
+  root: {flex: 1, backgroundColor: colors.background},
+  top: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    zIndex: 2,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  backFlip: {transform: [{rotate: '180deg'}]},
+  changeDest: {
+    backgroundColor: colors.glass,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  changeDestText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  sheetWrap: {position: 'absolute', left: 0, right: 0, bottom: 0},
+  title: {...typography.section, color: colors.text},
+  destSub: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: -spacing.sm,
+  },
+  vehicleRow: {flexDirection: 'row', gap: spacing.sm},
+  chip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    backgroundColor: colors.mist,
+  },
+  chipOn: {backgroundColor: colors.primaryMuted},
+  chipText: {...typography.bodyStrong, color: colors.textMuted},
+  chipTextOn: {color: colors.primary},
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+  },
+  quiet: {...typography.secondary, color: colors.textMuted},
+  error: {...typography.secondary, color: colors.error},
 });

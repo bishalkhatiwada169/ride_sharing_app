@@ -57,13 +57,25 @@ jest.mock('react-native-maps', () => {
   const {createElement} = require('react');
   const {View} = require('react-native');
   const MockMap = (props: Record<string, unknown>) =>
-    createElement(View, {testID: 'mock-map', ...props});
+    createElement(View, {testID: 'mock-map', ...props}, props.children as never);
   return {
     __esModule: true,
     default: MockMap,
     PROVIDER_GOOGLE: 'google',
+    Circle: (props: Record<string, unknown>) =>
+      createElement(View, {testID: 'mock-circle', ...props}),
   };
 });
+
+jest.mock('@react-native-community/geolocation', () => ({
+  __esModule: true,
+  default: {
+    setRNConfiguration: jest.fn(),
+    getCurrentPosition: jest.fn(),
+    watchPosition: jest.fn(() => 1),
+    clearWatch: jest.fn(),
+  },
+}));
 
 jest.mock('../src/navigation/RootNavigator', () => ({
   RootNavigator: () => null,

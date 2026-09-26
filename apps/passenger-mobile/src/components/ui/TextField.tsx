@@ -12,7 +12,7 @@ export function TextField({label, error, style, ...rest}: Props) {
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
-        placeholderTextColor={colors.mapPlaceholderInk}
+        placeholderTextColor={colors.textMuted}
         style={[styles.input, error ? styles.inputError : null, style]}
         {...rest}
       />
@@ -23,17 +23,18 @@ export function TextField({label, error, style, ...rest}: Props) {
 
 const styles = StyleSheet.create({
   wrap: {gap: spacing.xs},
-  label: {...typography.label, color: colors.inkSoft, textTransform: 'uppercase'},
+  label: {...typography.label, color: colors.textMuted, textTransform: 'uppercase'},
   input: {
     borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
+    minHeight: 52,
     ...typography.body,
-    color: colors.ink,
+    color: colors.text,
   },
-  inputError: {borderColor: colors.danger},
-  error: {...typography.caption, color: colors.danger},
+  inputError: {borderColor: colors.error},
+  error: {...typography.caption, color: colors.error},
 });

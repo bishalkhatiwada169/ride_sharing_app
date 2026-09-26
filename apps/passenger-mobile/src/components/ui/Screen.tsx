@@ -1,13 +1,15 @@
 import React from 'react';
 import {
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
   type RefreshControlProps,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {colors, spacing, typography} from '../../theme/tokens';
 
 type Props = {
@@ -18,6 +20,10 @@ type Props = {
   right?: React.ReactNode;
   refreshing?: boolean;
   onRefresh?: () => void;
+  /** Edge-to-edge content (e.g. map home). Skips default padding. */
+  edgeToEdge?: boolean;
+  style?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
 };
 
 export function Screen({
@@ -28,6 +34,9 @@ export function Screen({
   right,
   refreshing,
   onRefresh,
+  edgeToEdge,
+  style,
+  contentStyle,
 }: Props) {
   const body = (
     <>
@@ -46,31 +55,45 @@ export function Screen({
 
   const refreshProps: RefreshControlProps | undefined =
     onRefresh != null
-      ? {refreshing: !!refreshing, onRefresh, tintColor: colors.accent}
+      ? {refreshing: !!refreshing, onRefresh, tintColor: colors.primary}
       : undefined;
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView
+      style={[styles.root, style]}
+      edges={edgeToEdge ? ['left', 'right'] : ['top', 'left', 'right']}>
       {scroll ? (
         <ScrollView
-          contentContainerStyle={styles.pad}
+          contentContainerStyle={[
+            edgeToEdge ? styles.padEdge : styles.pad,
+            contentStyle,
+          ]}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
           refreshControl={
             refreshProps ? <RefreshControl {...refreshProps} /> : undefined
           }>
           {body}
         </ScrollView>
       ) : (
-        <View style={[styles.pad, styles.flex]}>{body}</View>
+        <View
+          style={[
+            edgeToEdge ? styles.padEdge : styles.pad,
+            styles.flex,
+            contentStyle,
+          ]}>
+          {body}
+        </View>
       )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {flex: 1, backgroundColor: colors.fog},
+  root: {flex: 1, backgroundColor: colors.background},
   flex: {flex: 1},
   pad: {padding: spacing.lg, gap: spacing.md, flexGrow: 1},
+  padEdge: {flexGrow: 1},
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -79,6 +102,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   headerText: {flex: 1, gap: 4},
-  title: {...typography.title, color: colors.ink},
-  subtitle: {...typography.caption, color: colors.inkSoft},
+  title: {...typography.title, color: colors.text},
+  subtitle: {...typography.secondary, color: colors.textMuted},
 });

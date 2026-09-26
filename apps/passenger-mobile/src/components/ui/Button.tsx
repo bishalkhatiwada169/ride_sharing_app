@@ -31,6 +31,7 @@ export function Button({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{disabled: isDisabled, busy: !!loading}}
       disabled={isDisabled}
       style={({pressed}) => [
         styles.base,
@@ -43,17 +44,16 @@ export function Button({
       {loading ? (
         <ActivityIndicator
           color={
-            variant === 'secondary' || variant === 'ghost'
-              ? colors.accent
-              : colors.fog
+            variant === 'primary' ? colors.textOnPrimary : colors.primary
           }
         />
       ) : (
         <Text
           style={[
             styles.label,
-            (variant === 'secondary' || variant === 'ghost') && styles.labelDark,
-            variant === 'danger' && styles.labelLight,
+            variant === 'primary' && styles.labelOnPrimary,
+            (variant === 'secondary' || variant === 'ghost') && styles.labelLight,
+            variant === 'danger' && styles.labelOnPrimary,
           ]}>
           {label}
         </Text>
@@ -64,23 +64,27 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 52,
-    borderRadius: radius.md,
+    minHeight: 56,
+    borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
-  primary: {backgroundColor: colors.accent},
-  secondary: {backgroundColor: colors.accentMuted},
-  danger: {backgroundColor: colors.danger},
+  primary: {backgroundColor: colors.primary},
+  secondary: {
+    backgroundColor: colors.glass,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderStrong,
+  },
+  danger: {backgroundColor: colors.error},
   ghost: {
     backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderStrong,
   },
-  pressed: {opacity: 0.88},
-  disabled: {opacity: 0.5},
-  label: {...typography.bodyStrong, color: colors.fog},
-  labelDark: {color: colors.ink},
-  labelLight: {color: colors.fog},
+  pressed: {opacity: 0.9, transform: [{scale: 0.98}]},
+  disabled: {opacity: 0.45},
+  label: {...typography.button, color: colors.text},
+  labelOnPrimary: {color: colors.textOnPrimary},
+  labelLight: {color: colors.text},
 });

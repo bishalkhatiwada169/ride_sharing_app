@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Passenger client config — non-secret only.
  *
  * How to point at your API:
@@ -14,8 +14,11 @@
  * android/local.properties (GOOGLE_MAPS_ANDROID_API_KEY). It is not a JS secret.
  */
 export const Env = {
-  apiBaseUrl: 'http://10.0.2.2:8080/api/v1',
-  wsBaseUrl: 'ws://10.0.2.2:8080/ws',
+  // Physical device on LAN (was 10.0.2.2 for emulator only)
+  apiBaseUrl: 'http://192.168.18.22:8080/api/v1',
+  wsBaseUrl: 'ws://192.168.18.22:8080/ws',
   environment: 'local' as 'local' | 'staging' | 'production',
   brandName: 'Ride',
+  /** Google OAuth Web client ID — required for production Google Sign-In. */
+  googleWebClientId: '' as string,
 };

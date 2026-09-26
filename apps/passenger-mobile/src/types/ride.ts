@@ -91,33 +91,42 @@ export function canCancelRide(status: RideStatus): boolean {
   return CANCELABLE_STATUSES.includes(status);
 }
 
+export function isTerminalRide(status: RideStatus): boolean {
+  return (
+    status === 'RIDE_COMPLETED' ||
+    status === 'CANCELLED_BY_PASSENGER' ||
+    status === 'CANCELLED_BY_DRIVER' ||
+    status === 'NO_DRIVER_FOUND' ||
+    status === 'EXPIRED' ||
+    status === 'PAYMENT_FAILED'
+  );
+}
+
 export function formatStatusLabel(status: RideStatus): string {
   switch (status) {
     case 'SEARCHING_DRIVER':
-      return 'Finding a driver';
+    case 'REQUESTED':
+      return 'Finding your driver';
     case 'DRIVER_ACCEPTED':
-      return 'Driver assigned';
+      return 'Driver is on the way';
     case 'DRIVER_ARRIVING':
-      return 'Driver on the way';
+      return 'Driver is arriving';
     case 'DRIVER_ARRIVED':
       return 'Driver has arrived';
     case 'RIDE_STARTED':
-      return 'Trip in progress';
+      return 'Ride in progress';
     case 'RIDE_COMPLETED':
-      return 'Completed';
+      return "You've arrived";
     case 'CANCELLED_BY_PASSENGER':
-      return 'Cancelled';
     case 'CANCELLED_BY_DRIVER':
-      return 'Cancelled by driver';
+      return 'Ride cancelled';
     case 'NO_DRIVER_FOUND':
       return 'No driver found';
     case 'EXPIRED':
       return 'Search expired';
     case 'PAYMENT_FAILED':
       return 'Payment issue';
-    case 'REQUESTED':
-      return 'Requested';
     default:
-      return status;
+      return 'Updating your trip…';
   }
 }
