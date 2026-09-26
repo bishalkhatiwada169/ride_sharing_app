@@ -18,12 +18,12 @@ There is no staging Compose overlay and no managed production environment in thi
 
 ```
 infrastructure/docker/
-  docker-compose.yml       # db + redis (default); backend + admin-web under profile `full`
-  Dockerfile.backend       # alternate; prefer backend/Dockerfile with backend context
-  Dockerfile.admin-web     # build from **repository root** context
+  docker-compose.yml       # db + redis (default); backend (+ embedded admin) under profile `full`
+  Dockerfile.backend       # alternate of backend/Dockerfile (repo-root context)
+  Dockerfile.admin-web     # optional standalone nginx image (not used by Compose)
 infrastructure/nginx/
-  admin.conf               # SPA + /api + /ws proxy to service name `backend`
-backend/Dockerfile         # used by Compose profile `full` for the API image
+  admin.conf               # only for optional standalone admin image
+backend/Dockerfile         # multi-stage: Vite admin → Spring Boot jar (embeds SPA)
 ```
 
 ### Default local (recommended)
@@ -31,7 +31,7 @@ backend/Dockerfile         # used by Compose profile `full` for the API image
 ```powershell
 .\scripts\start-infra.ps1          # db + redis only
 .\scripts\start-backend.ps1        # Gradle bootRun (uses backend/.env)
-.\scripts\start-admin.ps1          # Vite on :5173
+.\scripts\start-admin.ps1          # Vite HMR on :5173 (optional)
 ```
 
 ### Optional containers (`full` profile)
@@ -40,15 +40,27 @@ backend/Dockerfile         # used by Compose profile `full` for the API image
 docker compose -f infrastructure/docker/docker-compose.yml --profile full up -d --build
 ```
 
-- API: http://localhost:8080  
-- Admin image (nginx): http://localhost:8081  
+- API + Admin SPA (same origin): http://localhost:8080  
 - Requires bootstrap admin env vars for first boot if DB is empty
 
 There is **no** `docker-compose.staging.yml` in this repository.
 
 ---
 
-## 3. Configuration
+## 3. Embedded admin SPA
+
+The production-shaped artifact is a **single Spring Boot jar** that also serves the admin UI:
+
+1. `apps/admin-web` is built with Vite (`dist/`)
+2. Files are copied to `classpath:/static/` during `bootJar` / Docker build
+3. Spring serves `/`, `/login`, … and `/assets/**` from that classpath
+4. REST stays under `/api/**`; WebSocket under `/ws`
+
+Local UI development can still use Vite on `:5173` with the proxy; leave `VITE_*` base URLs unset for same-origin when using the embedded UI.
+
+---
+
+## 4. Configuration
 
 Secrets and environment-specific values via env / secret manager. See `.env.example` files.
 
@@ -56,23 +68,23 @@ Local defaults use mock SMS and mock payments. Do **not** treat default JWT/DB p
 
 ---
 
-## 4. Nginx
+## 5. Nginx
 
-`infrastructure/nginx/admin.conf` proxies `/api` and `/ws` to `backend:8080` when the admin image runs on the Compose network. TLS termination is **not** configured in-repo.
+`infrastructure/nginx/admin.conf` is only for the optional standalone `Dockerfile.admin-web` image. The Compose `full` profile does **not** run a separate admin container — TLS termination remains out of scope in-repo.
 
 ---
 
-## 5. CI (current)
+## 6. CI (current)
 
 `.github/workflows/ci.yml`:
 
-1. Backend: `./gradlew test`, `./gradlew bootJar -x test`
-2. Admin: `npm` typecheck, lint, build
+1. Admin: typecheck, lint, build
+2. Backend: `./gradlew test`, `./gradlew bootJar -x test` (embeds admin `dist` into the jar)
 
 No image publish or deploy jobs yet.
 
 ---
 
-## 6. Observability / runbooks
+## 7. Observability / runbooks
 
 MVP exposes Spring Actuator health. Structured ops runbooks, SLOs, and production incident processes are out of scope until a real deploy target exists.

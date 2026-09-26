@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
-# Build from repository root:
-#   docker build -f infrastructure/docker/Dockerfile.admin-web -t ride-admin .
+# OPTIONAL standalone admin image (nginx). Prefer embedding via backend/Dockerfile.
+# Kept for local experiments only — Compose `full` profile no longer uses this.
 #
-# Compose profile `full` sets context to repo root.
+#   docker build -f infrastructure/docker/Dockerfile.admin-web -t ride-admin .
 
 FROM node:22-alpine AS build
 WORKDIR /app

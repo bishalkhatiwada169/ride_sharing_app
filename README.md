@@ -21,8 +21,8 @@ ride-platform/
 │   ├── validation/
 │   └── shared-config/
 ├── infrastructure/
-│   ├── docker/               # Compose: PostGIS + Redis (+ optional backend/admin)
-│   └── nginx/                # admin.conf for optional admin image
+│   ├── docker/               # Compose: PostGIS + Redis (+ optional backend w/ embedded admin)
+│   └── nginx/                # optional standalone admin image only
 ├── docs/
 └── .github/workflows/ci.yml
 ```
@@ -49,23 +49,33 @@ ride-platform/
 # Terminal 1 — backend
 .\scripts\start-backend.ps1
 
-# Terminal 2 — admin
+# Terminal 2 — admin (optional Vite HMR)
 .\scripts\start-admin.ps1
 ```
 
 With `backend/.env` using `DB_EMBEDDED=false` and PostGIS Flyway locations (see `backend/.env.example`).
 
 - Backend / Swagger: http://localhost:8080/swagger-ui.html  
-- Admin (Vite): http://localhost:5173  
+- Admin (Vite HMR): http://localhost:5173  
+- Admin (embedded, after `npm run build` in `apps/admin-web` then `bootJar` / Compose `full`): http://localhost:8080/  
 - Default local admin: `admin@example.com` / `ChangeMeNow123!` (from `backend/.env`)
 
-Optional full containers:  
+Optional full containers (API + embedded admin SPA on one port):  
 `docker compose -f infrastructure/docker/docker-compose.yml --profile full up -d --build`  
-→ API `:8080`, admin nginx `:8081`
+→ http://localhost:8080
 
 Full Windows notes: [docs/SETUP_WINDOWS.md](docs/SETUP_WINDOWS.md)
 
 Passenger OTP uses mock SMS (code printed in backend logs).
+
+### LAN APK installs (passenger / driver)
+
+```powershell
+.\scripts\publish-apks.ps1          # build debug APKs → artifacts/apks/
+# Backend running on :8080, then open Admin → Downloads
+```
+
+Phones on the same Wi‑Fi scan the QR (or open the LAN link). Allow Windows Firewall for TCP 8080 if the phone cannot reach the PC.
 
 ---
 

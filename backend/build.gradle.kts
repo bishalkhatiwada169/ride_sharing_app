@@ -55,11 +55,24 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+// Embed admin SPA when apps/admin-web/dist exists (CI / Docker / local `npm run build`).
+val adminWebDist = rootProject.projectDir.resolve("../apps/admin-web/dist")
+tasks.register<Copy>("copyAdminWeb") {
+    description = "Copy Vite admin build into classpath:/static for same-origin deploy"
+    from(adminWebDist)
+    into(layout.buildDirectory.dir("resources/main/static"))
+    onlyIf { adminWebDist.isDirectory && adminWebDist.resolve("index.html").exists() }
+}
+
 // OneDrive/cloud reparse points under build/ can break Gradle file snapshots.
 // Keep resources untracked; force non-incremental test compile instead of doNotTrackState
 // (doNotTrackState on compileTestJava fails with "Changes are not tracked").
 tasks.named<ProcessResources>("processResources") {
     doNotTrackState("Avoid OneDrive reparse-point snapshot failures on resources")
+    finalizedBy("copyAdminWeb")
+}
+tasks.named("classes") {
+    dependsOn("copyAdminWeb")
 }
 tasks.named<ProcessResources>("processTestResources") {
     doNotTrackState("Avoid OneDrive reparse-point snapshot failures on test resources")

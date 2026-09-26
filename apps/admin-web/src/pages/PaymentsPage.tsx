@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/services/api-client";
+import { StatusMessage } from "@/components/StatusMessage";
 
 type Payment = {
   id: string;
@@ -31,16 +32,18 @@ export function PaymentsPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="font-[family-name:var(--font-display)] text-4xl">Payments</h1>
-      <p className="mt-2 text-[var(--color-ink-soft)]/80">
+      <h1 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl">
+        Payments
+      </h1>
+      <p className="mt-2 text-[var(--color-ink-soft)]">
         Ride settlements, mock provider, and refunds (Phase 4).
       </p>
 
-      {payments.isLoading && <p className="mt-6">Loading…</p>}
+      {payments.isLoading && <StatusMessage>Loading payments…</StatusMessage>}
       {payments.isError && (
-        <p className="mt-6 text-[var(--color-danger)]">
+        <StatusMessage tone="danger">
           {(payments.error as Error).message}
-        </p>
+        </StatusMessage>
       )}
 
       <ul className="mt-6 space-y-3">
@@ -53,17 +56,17 @@ export function PaymentsPage() {
               <p className="font-semibold">
                 {p.status} · {p.provider}
               </p>
-              <p className="text-sm">
+              <p className="text-sm tabular-nums">
                 {(p.amountMinor / 100).toFixed(2)} {p.currency}
               </p>
             </div>
-            <p className="mt-2 text-xs font-mono text-[var(--color-ink-soft)]/70">
+            <p className="mt-2 text-xs font-mono text-[var(--color-ink-soft)]">
               ride {p.rideId.slice(0, 8)}… · {p.providerPaymentId ?? "—"}
             </p>
             {p.status === "SUCCEEDED" && (
               <button
                 type="button"
-                className="mt-3 rounded-lg border border-[var(--color-line)] px-3 py-1.5 text-sm hover:bg-[var(--color-mist)]"
+                className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[var(--color-line)] px-3 py-2 text-sm hover:bg-[var(--color-mist)]"
                 disabled={refund.isPending}
                 onClick={() => refund.mutate(p.id)}
               >
@@ -73,7 +76,9 @@ export function PaymentsPage() {
           </li>
         ))}
         {payments.data?.length === 0 && (
-          <li className="text-[var(--color-ink-soft)]/70">No payments yet.</li>
+          <li role="status" className="text-[var(--color-ink-soft)]">
+            No payments yet.
+          </li>
         )}
       </ul>
     </div>

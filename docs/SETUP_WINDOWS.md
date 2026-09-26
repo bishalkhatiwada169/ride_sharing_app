@@ -22,7 +22,8 @@
 ```
 
 - API / Swagger: http://localhost:8080/swagger-ui.html
-- Admin: http://localhost:5173
+- Admin (Vite HMR): http://localhost:5173
+- Admin (embedded with backend): build admin then jar, or Compose profile `full` → http://localhost:8080/
 - Local admin: `admin@example.com` / `ChangeMeNow123!`
 
 ```powershell

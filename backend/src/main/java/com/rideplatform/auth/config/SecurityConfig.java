@@ -50,6 +50,20 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/",
+                                "/index.html",
+                                "/assets/**",
+                                "/favicon.ico",
+                                "/login",
+                                "/drivers",
+                                "/rides",
+                                "/pricing",
+                                "/payments",
+                                "/safety",
+                                "/support",
+                                "/audit",
+                                "/downloads",
+                                "/downloads/**",
+                                "/api",
                                 "/actuator/health",
                                 "/actuator/health/**",
                                 "/actuator/info",
@@ -67,6 +81,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhooks/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/safety/share/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/downloads", "/api/v1/downloads/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "SUPPORT")
                         .anyRequest().authenticated()
                 )

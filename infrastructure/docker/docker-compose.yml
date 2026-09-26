@@ -2,8 +2,8 @@
 # Default: db + redis only.
 # Optional full stack: docker compose --profile full up -d
 #
-# Admin UI is usually run via Vite (`scripts/start-admin.ps1`).
-# Optional admin container is under profile `full` and expects host backend DNS name `backend`.
+# Admin UI is embedded in the backend jar (same origin on :8080).
+# For HMR during local UI work, use Vite: `scripts/start-admin.ps1`.
 
 services:
   db:
@@ -38,8 +38,8 @@ services:
 
   backend:
     build:
-      context: ../../backend
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: backend/Dockerfile
     container_name: ride-platform-backend
     depends_on:
       db:
@@ -55,27 +55,19 @@ services:
       DATABASE_PASSWORD: change_me
       REDIS_URL: redis://redis:6379
       JWT_SECRET: local_dev_only_change_me_to_long_random_secret_32chars
-      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:8080,http://localhost
       SMS_PROVIDER: mock
       PAYMENT_PROVIDER: mock
       DB_EMBEDDED: "false"
       FLYWAY_LOCATIONS: classpath:db/migration,classpath:db/migration-postgis
-      BOOTSTRAP_SUPERADMIN_EMAIL: ${BOOTSTRAP_SUPERADMIN_EMAIL:-}
-      BOOTSTRAP_SUPERADMIN_PASSWORD: ${BOOTSTRAP_SUPERADMIN_PASSWORD:-}
+      BOOTSTRAP_SUPERADMIN_EMAIL: ${BOOTSTRAP_SUPERADMIN_EMAIL:-admin@example.com}
+      BOOTSTRAP_SUPERADMIN_PASSWORD: ${BOOTSTRAP_SUPERADMIN_PASSWORD:-ChangeMeNow123!}
+      APK_DOWNLOADS_DIR: /app/apks
+      APK_PUBLIC_BASE_URL: ${APK_PUBLIC_BASE_URL:-http://192.168.18.6:8080}
+    volumes:
+      - ../../artifacts/apks:/app/apks:ro
     ports:
       - "8080:8080"
-    profiles:
-      - full
-
-  admin-web:
-    build:
-      context: ../..
-      dockerfile: infrastructure/docker/Dockerfile.admin-web
-    container_name: ride-platform-admin
-    depends_on:
-      - backend
-    ports:
-      - "8081:80"
     profiles:
       - full
 
