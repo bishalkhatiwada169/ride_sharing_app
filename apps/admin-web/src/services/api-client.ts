@@ -1,7 +1,9 @@
 import { useAuthStore } from "@/stores/auth-store";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "/api/v1";
+const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim();
+const API_BASE = configuredBase
+  ? configuredBase.replace(/\/$/, "")
+  : "/api/v1";
 
 type ApiErrorBody = {
   message?: string;

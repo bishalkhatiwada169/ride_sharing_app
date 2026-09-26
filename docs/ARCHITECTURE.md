@@ -136,6 +136,7 @@ src/
 - **Zustand** — client-only: sidebar, theme preference, ephemeral UI flags
 - **React Hook Form + Zod** — forms
 - **React Router** — auth-gated routes by role
+- **Deploy** — Vite `dist/` is embedded in the Spring Boot jar (`classpath:/static/`) for same-origin serving; Vite `:5173` remains for local HMR
 
 ### Mobile apps (`passenger-mobile`, `driver-mobile`)
 

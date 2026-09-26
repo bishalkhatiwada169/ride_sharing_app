@@ -23,9 +23,17 @@ set BOOTSTRAP_SUPERADMIN_PASSWORD=ChangeMeNow123!
 ./gradlew bootRun
 ```
 
-- API: http://localhost:8080  
+- API: http://localhost:8080/api  
 - Health: http://localhost:8080/actuator/health  
 - Swagger: http://localhost:8080/swagger-ui.html  
+- Admin SPA (when embedded): http://localhost:8080/  
+
+Embed the admin UI into the jar (CI/Docker do this automatically):
+
+```bash
+cd ../apps/admin-web && npm install && npm run build
+cd ../../backend && ./gradlew bootJar
+```
 
 ### Passenger OTP (mock SMS)
 

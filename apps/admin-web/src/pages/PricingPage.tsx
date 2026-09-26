@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/services/api-client";
+import { StatusMessage } from "@/components/StatusMessage";
 
 type Rule = {
   id: string;
@@ -50,12 +51,19 @@ export function PricingPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="font-[family-name:var(--font-display)] text-4xl">Pricing</h1>
-      <p className="mt-2 text-[var(--color-ink-soft)]/80">
+      <h1 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl">
+        Pricing
+      </h1>
+      <p className="mt-2 text-[var(--color-ink-soft)]">
         Fare rules (server-side; apps never invent prices).
       </p>
 
-      {rules.isLoading && <p className="mt-6">Loading…</p>}
+      {rules.isLoading && <StatusMessage>Loading fare rules…</StatusMessage>}
+      {rules.isError && (
+        <StatusMessage tone="danger">
+          {(rules.error as Error).message}
+        </StatusMessage>
+      )}
       <ul className="mt-6 space-y-3">
         {(rules.data ?? []).map((r) => (
           <li
@@ -68,20 +76,25 @@ export function PricingPage() {
               </p>
               <p className="text-sm">{r.active ? "Active" : "Inactive"}</p>
             </div>
-            <p className="mt-2 text-sm text-[var(--color-ink-soft)]/80">
+            <p className="mt-2 text-sm tabular-nums text-[var(--color-ink-soft)]">
               base {(r.baseFareMinor / 100).toFixed(0)} · /km {(r.perKmMinor / 100).toFixed(0)} ·
               /min {(r.perMinuteMinor / 100).toFixed(0)} · surge {r.surgeMultiplier} ·{" "}
               {r.currency}
             </p>
             <button
               type="button"
-              className="mt-3 rounded-lg border border-[var(--color-line)] px-3 py-1.5 text-sm"
+              className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[var(--color-line)] px-3 py-2 text-sm"
               onClick={() => toggle.mutate(r)}
             >
               Toggle active
             </button>
           </li>
         ))}
+        {rules.data?.length === 0 && (
+          <li role="status" className="text-[var(--color-ink-soft)]">
+            No fare rules yet.
+          </li>
+        )}
       </ul>
     </div>
   );

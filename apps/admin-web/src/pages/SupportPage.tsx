@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/services/api-client";
+import { StatusMessage } from "@/components/StatusMessage";
 
 type Ticket = {
   id: string;
@@ -32,11 +33,18 @@ export function SupportPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="font-[family-name:var(--font-display)] text-4xl">Support</h1>
-      <p className="mt-2 text-[var(--color-ink-soft)]/80">
+      <h1 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl">
+        Support
+      </h1>
+      <p className="mt-2 text-[var(--color-ink-soft)]">
         Open tickets from passengers and drivers.
       </p>
-      {tickets.isLoading && <p className="mt-6">Loading…</p>}
+      {tickets.isLoading && <StatusMessage>Loading tickets…</StatusMessage>}
+      {tickets.isError && (
+        <StatusMessage tone="danger">
+          {(tickets.error as Error).message}
+        </StatusMessage>
+      )}
       <ul className="mt-6 space-y-3">
         {(tickets.data ?? []).map((t) => (
           <li
@@ -52,15 +60,17 @@ export function SupportPage() {
               </p>
             </div>
             {t.description && (
-              <p className="mt-2 text-sm text-[var(--color-ink-soft)]/80">{t.description}</p>
+              <p className="mt-2 text-sm text-[var(--color-ink-soft)]">
+                {t.description}
+              </p>
             )}
-            <p className="mt-2 text-xs text-[var(--color-ink-soft)]/60">
+            <p className="mt-2 text-xs text-[var(--color-ink-soft)]">
               {new Date(t.createdAt).toLocaleString()}
             </p>
             {t.status !== "RESOLVED" && t.status !== "CLOSED" && (
               <button
                 type="button"
-                className="mt-3 rounded-lg border border-[var(--color-line)] px-3 py-1.5 text-sm"
+                className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[var(--color-line)] px-3 py-2 text-sm"
                 onClick={() => resolve.mutate(t.id)}
               >
                 Mark resolved
@@ -69,7 +79,9 @@ export function SupportPage() {
           </li>
         ))}
         {tickets.data?.length === 0 && (
-          <li className="text-[var(--color-ink-soft)]/70">No tickets yet.</li>
+          <li role="status" className="text-[var(--color-ink-soft)]">
+            No tickets yet.
+          </li>
         )}
       </ul>
     </div>

@@ -5,14 +5,17 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+/**
+ * Lightweight service identity for probes / smoke scripts.
+ * The admin SPA (when embedded) owns {@code GET /}.
+ */
 @RestController
-public class RootController {
+public class ApiInfoController {
 
-    @GetMapping("/")
-    public Map<String, String> root() {
+    @GetMapping("/api")
+    public Map<String, String> apiRoot() {
         return Map.of(
                 "service", "ride-platform-backend",
-                "phase", "1",
                 "status", "ok"
         );
     }

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/services/api-client";
+import { StatusMessage } from "@/components/StatusMessage";
 
 type Incident = {
   id: string;
@@ -28,16 +29,20 @@ export function SafetyPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="font-[family-name:var(--font-display)] text-4xl">Safety</h1>
-      <p className="mt-2 text-[var(--color-ink-soft)]/80">
+      <h1 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl">
+        Safety
+      </h1>
+      <p className="mt-2 text-[var(--color-ink-soft)]">
         SOS and incident queue (Phase 5).
       </p>
 
-      {incidents.isLoading && <p className="mt-6">Loading…</p>}
+      {incidents.isLoading && (
+        <StatusMessage>Loading incidents…</StatusMessage>
+      )}
       {incidents.isError && (
-        <p className="mt-6 text-[var(--color-danger)]">
+        <StatusMessage tone="danger">
           {(incidents.error as Error).message}
-        </p>
+        </StatusMessage>
       )}
 
       <ul className="mt-6 space-y-3">
@@ -50,7 +55,7 @@ export function SafetyPage() {
               <p className="font-semibold">
                 {i.type} · {i.status}
               </p>
-              <p className="text-xs text-[var(--color-ink-soft)]/70">
+              <p className="text-xs text-[var(--color-ink-soft)]">
                 {new Date(i.createdAt).toLocaleString()}
               </p>
             </div>
@@ -58,11 +63,15 @@ export function SafetyPage() {
               {i.category ?? "—"}
               {i.rideId ? ` · ride ${i.rideId.slice(0, 8)}…` : ""}
             </p>
-            {i.notes && <p className="mt-1 text-sm text-[var(--color-ink-soft)]/80">{i.notes}</p>}
+            {i.notes && (
+              <p className="mt-1 text-sm text-[var(--color-ink-soft)]">
+                {i.notes}
+              </p>
+            )}
             {i.status !== "RESOLVED" && (
               <button
                 type="button"
-                className="mt-3 rounded-lg border border-[var(--color-line)] px-3 py-1.5 text-sm hover:bg-[var(--color-mist)]"
+                className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[var(--color-line)] px-3 py-2 text-sm hover:bg-[var(--color-mist)]"
                 disabled={resolve.isPending}
                 onClick={() => resolve.mutate(i.id)}
               >
@@ -72,7 +81,9 @@ export function SafetyPage() {
           </li>
         ))}
         {incidents.data?.length === 0 && (
-          <li className="text-[var(--color-ink-soft)]/70">No incidents.</li>
+          <li role="status" className="text-[var(--color-ink-soft)]">
+            No incidents.
+          </li>
         )}
       </ul>
     </div>

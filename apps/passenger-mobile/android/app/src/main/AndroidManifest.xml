@@ -9,7 +9,8 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme"
-      android:supportsRtl="true">
+      android:supportsRtl="true"
+      android:usesCleartextTraffic="true">
       <!-- Google Maps SDK for Android — value injected from Gradle (never hard-code secrets). -->
       <meta-data
         android:name="com.google.android.geo.API_KEY"

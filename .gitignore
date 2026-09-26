@@ -19,6 +19,8 @@ backend/out/
 *.class
 *.jar
 *.war
+!backend/gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 
 # Node
 node_modules/
@@ -46,3 +48,7 @@ apps/**/android/app/.cxx/
 apps/**/android/build/
 apps/**/*.jsbundle
 **/local.properties
+
+# Published APKs for local LAN install (see artifacts/apks/README.md)
+*.apk
+!artifacts/apks/README.md
