@@ -84,11 +84,6 @@ rideplatform:
     auto-accept: ${MATCHING_AUTO_ACCEPT:true}
     offer-poll-ms: 5000
     search-poll-ms: 15000
-  downloads:
-    # Directory of passenger.apk / driver.apk (relative to backend/ when using Gradle bootRun)
-    dir: ${APK_DOWNLOADS_DIR:../artifacts/apks}
-    # Optional override, e.g. http://192.168.1.20:8080 — otherwise first LAN IPv4 is used
-    public-base-url: ${APK_PUBLIC_BASE_URL:}
 
 logging:
   level:

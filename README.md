@@ -23,8 +23,11 @@ ride-platform/
 ├── infrastructure/
 │   ├── docker/               # Compose: PostGIS + Redis (+ optional backend w/ embedded admin)
 │   └── nginx/                # optional standalone admin image only
+├── deploy/
+│   ├── android/              # APK publish (GitHub Actions → S3)
+│   └── dns/                  # Route53 ride.bkcs.app (AWS SDK)
 ├── docs/
-└── .github/workflows/ci.yml
+└── .github/workflows/        # ci.yml, publish-android-apk.yml, ensure-dns.yml
 ```
 
 ---
@@ -68,15 +71,35 @@ Full Windows notes: [docs/SETUP_WINDOWS.md](docs/SETUP_WINDOWS.md)
 
 Passenger OTP uses mock SMS (code printed in backend logs).
 
-### LAN APK installs (unified Ride app)
+### Android APK installs (CI → S3)
 
-```powershell
-.\scripts\publish-apks.ps1          # builds → artifacts/apks/passenger.apk
-# Backend running on :8080, then open:
-# http://<LAN-IP>:8080/downloads
+Publish from GitHub Actions (**Publish Android APK**), not a local PowerShell script.
+See [deploy/android/README.md](deploy/android/README.md).
+
+```
+# After CI publish + VITE_ANDROID_MANIFEST_URL set on admin-web:
+# http://localhost:5173/downloads   (or embedded admin /downloads)
 ```
 
-One Android app — choose Passenger or Driver after install. Same Wi‑Fi required; allow Windows Firewall TCP 8080 if the phone cannot reach the PC.
+One Android app — choose Passenger or Driver after install.
+
+### DNS (`ride.bkcs.app`)
+
+```powershell
+cd deploy/dns
+npm install
+npm run ensure-dns
+```
+
+Or GitHub → Actions → **Ensure Ride DNS**. Details: [deploy/dns/README.md](deploy/dns/README.md).
+
+### Shared host deploy (TLS)
+
+```powershell
+# GitHub → Actions → Deploy Shared Host
+# Docs: deploy/shared/README.md
+# Live: https://ride.bkcs.app  /  https://api.ride.bkcs.app
+```
 
 ---
 

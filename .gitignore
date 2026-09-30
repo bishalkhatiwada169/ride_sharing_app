@@ -48,7 +48,10 @@ apps/**/android/app/.cxx/
 apps/**/android/build/
 apps/**/*.jsbundle
 **/local.properties
+**/android/key.properties
+**/upload-keystore.jks
+deploy/android/secrets/**
+deploy/dns/.dns-meta.json
 
-# Published APKs for local LAN install (see artifacts/apks/README.md)
+# Built APKs (CI uploads to S3; do not commit)
 *.apk
-!artifacts/apks/README.md

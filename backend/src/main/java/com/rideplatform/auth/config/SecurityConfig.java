@@ -62,7 +62,6 @@ public class SecurityConfig {
                                 "/support",
                                 "/audit",
                                 "/downloads",
-                                "/downloads/**",
                                 "/api",
                                 "/actuator/health",
                                 "/actuator/health/**",
@@ -81,7 +80,6 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhooks/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/safety/share/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/downloads", "/api/v1/downloads/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "SUPPORT")
                         .anyRequest().authenticated()
                 )

@@ -56,7 +56,7 @@ export function LoginPage() {
               to="/downloads"
               className="font-medium text-[var(--color-accent)] underline-offset-2 hover:underline"
             >
-              Download APKs over Wi‑Fi
+              Get the Android app
             </Link>
             — no sign-in required.
           </p>

@@ -1,32 +1,20 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import QRCode from "qrcode";
-import { apiRequest } from "@/services/api-client";
 import { StatusMessage } from "@/components/StatusMessage";
 import { Check, Copy } from "lucide-react";
 
-type ApkItem = {
-  id: string;
-  label: string;
-  filename: string;
-  available: boolean;
-  sizeBytes: number | null;
-  modifiedAt: string | null;
-  downloadUrls: string[];
+type AndroidManifest = {
+  versionName: string;
+  versionCode: number;
+  apkUrl: string;
+  apkSha256?: string;
+  label?: string;
+  uploadedAt?: string;
+  gitSha?: string;
 };
 
-type DownloadsCatalog = {
-  preferredBaseUrl: string;
-  lanHosts: string[];
-  apps: ApkItem[];
-};
-
-function formatBytes(n: number | null | undefined): string {
-  if (n == null) return "—";
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
+const MANIFEST_URL = import.meta.env.VITE_ANDROID_MANIFEST_URL?.trim() ?? "";
 
 function QrImage({ url }: { url: string }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
@@ -148,12 +136,25 @@ function CopyLinkButton({ text }: { text: string }) {
   );
 }
 
+async function fetchManifest(): Promise<AndroidManifest> {
+  if (!MANIFEST_URL) {
+    throw new Error(
+      "VITE_ANDROID_MANIFEST_URL is not set. Point it at the S3 version.json from CI publish."
+    );
+  }
+  const res = await fetch(MANIFEST_URL, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Manifest HTTP ${res.status} from ${MANIFEST_URL}`);
+  }
+  return (await res.json()) as AndroidManifest;
+}
+
 export function DownloadsPage() {
-  const catalog = useQuery({
-    queryKey: ["public-downloads"],
-    queryFn: () =>
-      apiRequest<DownloadsCatalog>("/downloads", { auth: false }),
-    refetchInterval: 15_000,
+  const manifest = useQuery({
+    queryKey: ["android-manifest", MANIFEST_URL],
+    queryFn: fetchManifest,
+    enabled: Boolean(MANIFEST_URL),
+    refetchInterval: 60_000,
   });
 
   return (
@@ -162,97 +163,71 @@ export function DownloadsPage() {
         Install Ride
       </h1>
       <p className="mt-2 max-w-2xl text-[var(--color-ink-soft)]">
-        One Android app for both passenger and driver. On the same Wi‑Fi as
-        this server, scan the QR code or open the link, install, then choose
-        your role in the app. You may need to allow “Install unknown apps”
-        for this browser.
+        One Android app for both passenger and driver. Download the latest CI
+        build, install it, then choose your role in the app. You may need to
+        allow “Install unknown apps” for this browser.
       </p>
 
-      {catalog.isLoading && (
+      {!MANIFEST_URL && (
+        <StatusMessage tone="danger">
+          Set <code>VITE_ANDROID_MANIFEST_URL</code> to the public{" "}
+          <code>version.json</code> URL from{" "}
+          <code>deploy/android/README.md</code>, then rebuild admin-web.
+        </StatusMessage>
+      )}
+
+      {MANIFEST_URL && manifest.isLoading && (
         <StatusMessage>Loading available builds…</StatusMessage>
       )}
-      {catalog.isError && (
+      {MANIFEST_URL && manifest.isError && (
         <StatusMessage tone="danger">
-          {(catalog.error as Error).message}. Check that the API is reachable,
+          {(manifest.error as Error).message}. Publish an APK via GitHub Actions,
           then refresh.
         </StatusMessage>
       )}
 
-      {catalog.data && (
-        <>
-          <div className="mt-6 rounded-2xl border border-[var(--color-line)] bg-white/80 p-4 text-sm text-[var(--color-ink-soft)] sm:p-5">
-            Server:{" "}
-            <code className="rounded bg-[var(--color-mist)] px-1.5 py-0.5 text-[var(--color-ink)]">
-              {catalog.data.preferredBaseUrl}
-            </code>
-            {catalog.data.lanHosts.length > 1 && (
-              <span className="mt-1 block text-xs">
-                Also: {catalog.data.lanHosts.slice(1).join(", ")}
-              </span>
-            )}
-          </div>
+      {manifest.data && (
+        <div className="mt-8 grid gap-6 lg:max-w-xl lg:grid-cols-1">
+          <article className="rounded-2xl border border-[var(--color-line)] bg-white/80 p-4 sm:p-5">
+            <h2 className="text-xl font-semibold tracking-tight">
+              {manifest.data.label ?? "Ride app (passenger + driver)"}
+            </h2>
+            <p className="mt-1 text-sm text-[var(--color-ink-soft)]">
+              {manifest.data.versionName}+{manifest.data.versionCode}
+              {manifest.data.uploadedAt
+                ? ` · ${new Date(manifest.data.uploadedAt).toLocaleString()}`
+                : ""}
+              {manifest.data.gitSha ? ` · ${manifest.data.gitSha}` : ""}
+            </p>
 
-          <div className="mt-8 grid gap-6 lg:grid-cols-1 lg:max-w-xl">
-            {catalog.data.apps.map((app) => {
-              const primary = app.downloadUrls[0];
-              return (
-                <article
-                  key={app.id}
-                  className="rounded-2xl border border-[var(--color-line)] bg-white/80 p-4 sm:p-5"
-                >
-                  <h2 className="text-xl font-semibold tracking-tight">
-                    {app.label}
-                  </h2>
-                  <p className="mt-1 text-sm text-[var(--color-ink-soft)]">
-                    Choose Passenger or Driver after install · {app.filename} ·{" "}
-                    {formatBytes(app.sizeBytes)}
-                    {app.modifiedAt
-                      ? ` · ${new Date(app.modifiedAt).toLocaleString()}`
-                      : ""}
+            {!manifest.data.apkUrl ? (
+              <p role="status" className="mt-4 text-[var(--color-danger)]">
+                Manifest has no apkUrl yet.
+              </p>
+            ) : (
+              <div className="mt-4 flex flex-col items-start gap-4 sm:flex-row">
+                <QrImage url={manifest.data.apkUrl} />
+                <div className="min-w-0 flex-1 space-y-3">
+                  <a
+                    href={manifest.data.apkUrl}
+                    className="inline-flex min-h-11 items-center rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
+                  >
+                    Download APK
+                  </a>
+                  <p className="break-all text-xs text-[var(--color-ink-soft)]">
+                    {manifest.data.apkUrl}
                   </p>
-
-                  {!app.available || !primary ? (
-                    <p role="status" className="mt-4 text-[var(--color-danger)]">
-                      Not available yet. Ask an admin to publish builds.
+                  <CopyLinkButton text={manifest.data.apkUrl} />
+                  {manifest.data.apkSha256 && (
+                    <p className="break-all text-xs text-[var(--color-ink-soft)]">
+                      SHA-256: {manifest.data.apkSha256}
                     </p>
-                  ) : (
-                    <div className="mt-4 flex flex-col items-start gap-4 sm:flex-row">
-                      <QrImage url={primary} />
-                      <div className="min-w-0 flex-1 space-y-3">
-                        <a
-                          href={primary}
-                          className="inline-flex min-h-11 items-center rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
-                        >
-                          Download APK
-                        </a>
-                        <p className="break-all text-xs text-[var(--color-ink-soft)]">
-                          {primary}
-                        </p>
-                        <CopyLinkButton text={primary} />
-                        {app.downloadUrls.length > 1 && (
-                          <details className="text-xs text-[var(--color-ink-soft)]">
-                            <summary className="cursor-pointer py-1">
-                              Other URLs
-                            </summary>
-                            <ul className="mt-2 space-y-1 break-all">
-                              {app.downloadUrls.slice(1).map((u) => (
-                                <li key={u}>
-                                  <a className="underline" href={u}>
-                                    {u}
-                                  </a>
-                                </li>
-                              ))}
-                            </ul>
-                          </details>
-                        )}
-                      </div>
-                    </div>
                   )}
-                </article>
-              );
-            })}
-          </div>
-        </>
+                </div>
+              </div>
+            )}
+          </article>
+        </div>
       )}
     </div>
   );

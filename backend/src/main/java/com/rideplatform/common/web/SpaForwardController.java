@@ -22,7 +22,8 @@ public class SpaForwardController {
             "/payments",
             "/safety",
             "/support",
-            "/audit"
+            "/audit",
+            "/downloads"
     })
     public String forwardSpa() {
         return "forward:/index.html";

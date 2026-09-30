@@ -76,15 +76,23 @@ Local defaults use mock SMS and mock payments. Do **not** treat default JWT/DB p
 
 ## 6. CI (current)
 
-`.github/workflows/ci.yml`:
+`.github/workflows/ci.yml` — backend + admin build on push/PR.
 
-1. Admin: typecheck, lint, build
-2. Backend: `./gradlew test`, `./gradlew bootJar -x test` (embeds admin `dist` into the jar)
+`.github/workflows/publish-android-apk.yml` — release APK → S3.
 
-No image publish or deploy jobs yet.
+`.github/workflows/ensure-dns.yml` — Route53 upsert for `ride.bkcs.app`.
+
+`.github/workflows/deploy-shared.yml` — build image → `bkcs-shared` (Caddy TLS).
+
+Production URLs (after deploy):
+
+- Admin: https://ride.bkcs.app/
+- API: https://api.ride.bkcs.app/actuator/health
+
+See [deploy/shared/README.md](../deploy/shared/README.md).
 
 ---
 
 ## 7. Observability / runbooks
 
-MVP exposes Spring Actuator health. Structured ops runbooks, SLOs, and production incident processes are out of scope until a real deploy target exists.
+MVP exposes Spring Actuator health. Shared-host smoke: `https://api.ride.bkcs.app/actuator/health`.

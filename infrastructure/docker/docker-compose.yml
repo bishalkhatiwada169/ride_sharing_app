@@ -62,10 +62,6 @@ services:
       FLYWAY_LOCATIONS: classpath:db/migration,classpath:db/migration-postgis
       BOOTSTRAP_SUPERADMIN_EMAIL: ${BOOTSTRAP_SUPERADMIN_EMAIL:-admin@example.com}
       BOOTSTRAP_SUPERADMIN_PASSWORD: ${BOOTSTRAP_SUPERADMIN_PASSWORD:-ChangeMeNow123!}
-      APK_DOWNLOADS_DIR: /app/apks
-      APK_PUBLIC_BASE_URL: ${APK_PUBLIC_BASE_URL:-http://192.168.18.6:8080}
-    volumes:
-      - ../../artifacts/apks:/app/apks:ro
     ports:
       - "8080:8080"
     profiles:

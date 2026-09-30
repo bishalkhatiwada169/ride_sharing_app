@@ -1,0 +1,11 @@
+{
+  "name": "ride-dns-deploy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "ensure-dns": "node ensure-dns.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-route-53": "^3.901.0"
+  }
+}

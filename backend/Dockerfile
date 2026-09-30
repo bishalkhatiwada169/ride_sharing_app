@@ -8,6 +8,10 @@ WORKDIR /admin
 COPY apps/admin-web/package.json apps/admin-web/package-lock.json* ./
 RUN npm ci || npm install
 COPY apps/admin-web/ ./
+ARG VITE_ANDROID_MANIFEST_URL=https://rideplatform-downloads-313411897974.s3.ap-south-1.amazonaws.com/android/version.json
+ARG VITE_ENVIRONMENT=production
+ENV VITE_ANDROID_MANIFEST_URL=$VITE_ANDROID_MANIFEST_URL \
+    VITE_ENVIRONMENT=$VITE_ENVIRONMENT
 # Same-origin relative API/WS (served by Spring Boot)
 RUN npm run build
 
@@ -23,7 +27,8 @@ RUN chmod +x gradlew \
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-RUN addgroup -S ride && adduser -S ride -G ride
+RUN apk add --no-cache curl \
+  && addgroup -S ride && adduser -S ride -G ride
 COPY --from=build /workspace/build/libs/*.jar /app/app.jar
 USER ride
 EXPOSE 8080

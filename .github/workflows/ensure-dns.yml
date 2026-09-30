@@ -1,0 +1,80 @@
+name: Ensure Ride DNS
+
+on:
+  workflow_dispatch:
+    inputs:
+      public_ip:
+        description: Override A-record target IP (default from deploy/dns/dns.env)
+        type: string
+        required: false
+        default: ""
+      app_host:
+        description: App hostname
+        type: string
+        required: false
+        default: "ride.bkcs.app"
+      api_host:
+        description: API hostname
+        type: string
+        required: false
+        default: "api.ride.bkcs.app"
+
+concurrency:
+  group: ensure-ride-dns
+  cancel-in-progress: false
+
+jobs:
+  upsert-dns:
+    name: Upsert Route53 A records
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: stage
+
+    defaults:
+      run:
+        working-directory: deploy/dns
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: deploy/dns/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Install dependencies
+        run: |
+          if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
+
+      - name: Upsert DNS records
+        env:
+          PUBLIC_IP: ${{ inputs.public_ip }}
+          APP_HOST: ${{ inputs.app_host }}
+          API_HOST: ${{ inputs.api_host }}
+        run: |
+          set -euo pipefail
+          # Empty input must not wipe dns.env default
+          if [[ -z "${PUBLIC_IP}" ]]; then unset PUBLIC_IP; fi
+          npm run ensure-dns
+
+      - name: Summary
+        run: |
+          {
+            echo "### Ride DNS"
+            echo ""
+            echo "- App: \`https://${{ inputs.app_host }}\`"
+            echo "- API: \`https://${{ inputs.api_host }}\`"
+            echo "- Zone: \`bkcs.app\` (\`Z04478763BU66SIRP4V3S\`)"
+            echo ""
+            echo "Verify with \`nslookup\` after INSYNC. TLS/nginx on the shared host is separate."
+          } >> "$GITHUB_STEP_SUMMARY"
