@@ -2,14 +2,18 @@ import {ApiError} from '../services/api-client';
 
 export function formatMoney(minor: number, currency: string): string {
   const major = minor / 100;
+  const code = (currency || 'NPR').toUpperCase();
+  if (code === 'NPR' || code === 'NRS') {
+    return `रू${Math.round(major)}`;
+  }
   try {
     return new Intl.NumberFormat(undefined, {
       style: 'currency',
-      currency,
+      currency: code,
       maximumFractionDigits: 0,
     }).format(major);
   } catch {
-    return `${currency} ${major.toFixed(0)}`;
+    return `${code} ${major.toFixed(0)}`;
   }
 }
 

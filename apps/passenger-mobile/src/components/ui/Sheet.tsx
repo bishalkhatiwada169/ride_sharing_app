@@ -129,7 +129,7 @@ export function BottomSheet({
 
 const styles = StyleSheet.create({
   sheet: {
-    backgroundColor: colors.glass,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
     paddingHorizontal: spacing.lg,
@@ -137,6 +137,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    ...elevation.lg,
+  },
     ...elevation.md,
   },
   floating: {

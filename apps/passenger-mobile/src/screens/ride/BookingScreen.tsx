@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {Alert, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {
@@ -9,8 +9,7 @@ import {
 import {BottomSheet} from '../../components/ui/Sheet';
 import {Button} from '../../components/ui/Button';
 import {FloatingMapButton} from '../../components/ui/FloatingMapButton';
-import {LocationRow} from '../../components/ui/LocationRow';
-import {FareBlock} from '../../components/ui/FareBlock';
+import {Icon} from '../../components/ui/Icon';
 import {useAuth} from '../../state/AuthContext';
 import {usePassengerLocation} from '../../hooks/usePassengerLocation';
 import {bookRide, createQuote} from '../../services/ride-api';
@@ -26,10 +25,14 @@ import type {RootStackParamList} from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Booking'>;
 
-const VEHICLES: {type: VehicleType; title: string}[] = [
-  {type: 'ECONOMY', title: 'Standard'},
-  {type: 'COMFORT', title: 'Comfort'},
-  {type: 'XL', title: 'XL'},
+const VEHICLES: {
+  type: VehicleType;
+  title: string;
+  icon: 'locate' | 'car';
+}[] = [
+  {type: 'ECONOMY', title: 'BIKE', icon: 'locate'},
+  {type: 'COMFORT', title: 'CAR LITE', icon: 'car'},
+  {type: 'XL', title: 'CAR', icon: 'car'},
 ];
 
 export function BookingScreen({navigation, route}: Props) {
@@ -43,7 +46,9 @@ export function BookingScreen({navigation, route}: Props) {
   const dropLng = params?.dropoffLng;
   const destinationSecondary = params?.destinationSecondary;
 
-  const [vehicleType, setVehicleType] = useState<VehicleType>('ECONOMY');
+  const [vehicleType, setVehicleType] = useState<VehicleType>(
+    params?.preferredVehicle ?? 'COMFORT',
+  );
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -148,12 +153,11 @@ export function BookingScreen({navigation, route}: Props) {
     }
   }
 
-  const vehicleTitle =
-    VEHICLES.find(v => v.type === vehicleType)?.title ?? vehicleType;
-
   if (!destinationReady) {
     return <View style={styles.root} />;
   }
+
+  const selected = VEHICLES.find(v => v.type === vehicleType) ?? VEHICLES[1];
 
   return (
     <View style={styles.root}>
@@ -164,8 +168,9 @@ export function BookingScreen({navigation, route}: Props) {
         showRecenterButton={false}
         followUser={false}
         fitToMarkers
+        showRoute
         markers={markers}
-        controlsBottomOffset={220}
+        controlsBottomOffset={240}
       />
 
       <View style={[styles.top, {top: insets.top + spacing.sm}]}>
@@ -175,58 +180,75 @@ export function BookingScreen({navigation, route}: Props) {
           onPress={() => navigation.goBack()}
           style={styles.backFlip}
         />
-        <Pressable
+        <FloatingMapButton
+          icon="search"
+          accessibilityLabel="Change destination"
           onPress={() => navigation.replace('DestinationSearch')}
-          style={styles.changeDest}>
-          <Text style={styles.changeDestText}>Change</Text>
-        </Pressable>
+        />
       </View>
 
       <View style={styles.sheetWrap} pointerEvents="box-none">
         <BottomSheet floating>
-          <Text style={styles.title}>Confirm your ride</Text>
-
-          <LocationRow
-            pickupLabel={
-              pickupReady ? 'Current location' : 'Finding your location…'
-            }
-            destinationLabel={destination}
-          />
-          {destinationSecondary ? (
-            <Text style={styles.destSub} numberOfLines={2}>
-              {destinationSecondary}
-            </Text>
-          ) : null}
-
           <View style={styles.vehicleRow}>
             {VEHICLES.map(v => {
               const on = vehicleType === v.type;
+              const price =
+                on && quote
+                  ? formatMoney(quote.totalMinor, quote.currency)
+                  : null;
               return (
                 <Pressable
                   key={v.type}
                   onPress={() => setVehicleType(v.type)}
                   style={[styles.chip, on && styles.chipOn]}>
+                  <Icon
+                    name={v.icon}
+                    size={22}
+                    color={on ? colors.primary : colors.textMuted}
+                  />
                   <Text style={[styles.chipText, on && styles.chipTextOn]}>
                     {v.title}
                   </Text>
+                  {price ? (
+                    <Text style={[styles.chipPrice, on && styles.chipPriceOn]}>
+                      {price}
+                    </Text>
+                  ) : (
+                    <Text style={styles.chipMeta}>
+                      {loading && on ? '…' : ' '}
+                    </Text>
+                  )}
                 </Pressable>
               );
             })}
           </View>
 
-          {loading && !quote ? (
-            <Text style={styles.quiet}>Getting fare…</Text>
-          ) : null}
+          <View style={styles.selectedBlock}>
+            <Icon name={selected.icon} size={36} color={colors.primary} />
+            <View style={styles.selectedCopy}>
+              <Text style={styles.selectedTitle}>{selected.title}</Text>
+              {quote ? (
+                <Text style={styles.selectedMeta}>
+                  ~{formatDuration(quote.durationS)} ·{' '}
+                  {formatDistance(quote.distanceM)} · Cash
+                </Text>
+              ) : (
+                <Text style={styles.selectedMeta}>
+                  {loading ? 'Getting fare…' : 'Select a ride'}
+                </Text>
+              )}
+            </View>
+            {quote ? (
+              <Text style={styles.selectedPrice}>
+                {formatMoney(quote.totalMinor, quote.currency)}
+              </Text>
+            ) : null}
+          </View>
 
-          {quote ? (
-            <>
-              <View style={styles.divider} />
-              <FareBlock
-                rideLabel={vehicleTitle}
-                fare={formatMoney(quote.totalMinor, quote.currency)}
-                meta={`~${formatDuration(quote.durationS)} · ${formatDistance(quote.distanceM)} · Cash`}
-              />
-            </>
+          {destinationSecondary ? (
+            <Text style={styles.destSub} numberOfLines={1}>
+              To {destination}
+            </Text>
           ) : null}
 
           {!!error && <Text style={styles.error}>{error}</Text>}
@@ -234,25 +256,15 @@ export function BookingScreen({navigation, route}: Props) {
           <Button
             label={
               confirming
-                ? 'Confirming…'
+                ? 'SENDING…'
                 : loading
-                  ? 'Getting fare…'
-                  : 'Confirm ride'
+                  ? 'GETTING FARE…'
+                  : 'SEND PICKUP REQUEST'
             }
             loading={confirming || (loading && !quote)}
             disabled={!quote || !pickupReady || confirming}
-            onPress={() =>
-              Alert.alert(
-                'Confirm ride',
-                quote
-                  ? `Book for ${formatMoney(quote.totalMinor, quote.currency)}?`
-                  : 'Confirm this trip?',
-                [
-                  {text: 'Back', style: 'cancel'},
-                  {text: 'Confirm', onPress: () => void onConfirm()},
-                ],
-              )
-            }
+            onPress={() => void onConfirm()}
+            style={styles.cta}
           />
         </BottomSheet>
       </View>
@@ -272,41 +284,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backFlip: {transform: [{rotate: '180deg'}]},
-  changeDest: {
-    backgroundColor: colors.glass,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  changeDestText: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '700',
-  },
   sheetWrap: {position: 'absolute', left: 0, right: 0, bottom: 0},
-  title: {...typography.section, color: colors.text},
-  destSub: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginTop: -spacing.sm,
-  },
   vehicleRow: {flexDirection: 'row', gap: spacing.sm},
   chip: {
     flex: 1,
     alignItems: 'center',
+    gap: 4,
     paddingVertical: 10,
     borderRadius: radius.md,
     backgroundColor: colors.mist,
   },
-  chipOn: {backgroundColor: colors.primaryMuted},
-  chipText: {...typography.bodyStrong, color: colors.textMuted},
-  chipTextOn: {color: colors.primary},
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
+  chipOn: {
+    backgroundColor: colors.primaryMuted,
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
-  quiet: {...typography.secondary, color: colors.textMuted},
+  chipText: {...typography.caption, color: colors.textMuted, fontWeight: '700'},
+  chipTextOn: {color: colors.primary},
+  chipPrice: {...typography.caption, color: colors.textMuted, fontWeight: '700'},
+  chipPriceOn: {color: colors.text},
+  chipMeta: {...typography.caption, color: colors.textMuted},
+  selectedBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  selectedCopy: {flex: 1, gap: 2},
+  selectedTitle: {...typography.section, color: colors.text},
+  selectedMeta: {...typography.caption, color: colors.textMuted},
+  selectedPrice: {...typography.price, color: colors.text, fontSize: 26},
+  destSub: {...typography.caption, color: colors.textMuted},
   error: {...typography.secondary, color: colors.error},
+  cta: {borderRadius: radius.md, minHeight: 52},
 });

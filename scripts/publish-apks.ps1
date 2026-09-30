@@ -66,6 +66,7 @@ function Write-PassengerEnv([string]$path) {
     "  wsBaseUrl: '$wsBase',"
     "  environment: 'local' as 'local' | 'staging' | 'production',"
     "  brandName: 'Ride',"
+    "  googleWebClientId: '' as string,"
     "};"
   ) | Set-Content -Path $path -Encoding utf8
 }
@@ -81,9 +82,10 @@ function Write-DriverEnv([string]$path) {
 }
 
 $apps = @(
-  @{ Name = "passenger"; AppDir = Join-Path $root "apps\passenger-mobile"; Dest = Join-Path $outDir "passenger.apk" },
-  @{ Name = "driver"; AppDir = Join-Path $root "apps\driver-mobile"; Dest = Join-Path $outDir "driver.apk" }
+  @{ Name = "passenger"; AppDir = Join-Path $root "apps\passenger-mobile"; Dest = Join-Path $outDir "passenger.apk" }
 )
+# Unified app only — passenger-mobile includes passenger + driver roles.
+# Legacy driver-mobile harness is not published to /downloads.
 
 foreach ($app in $apps) {
   $builtInPlace = Join-Path $app.AppDir "android\app\build\outputs\apk\release\app-release.apk"
@@ -109,9 +111,17 @@ foreach ($app in $apps) {
     if (Test-Path $shortApp) {
       Remove-Item $shortApp -Recurse -Force -ErrorAction SilentlyContinue
     }
-    robocopy $app.AppDir $shortApp /E /XD android\.cxx android\app\build android\.gradle /NFL /NDL /NJH /NJS /nc /ns /np | Out-Null
+    # Exclude node_modules (huge / slow on OneDrive); junction it after copy
+    robocopy $app.AppDir $shortApp /E /XD node_modules android\.cxx android\app\build android\.gradle .git /NFL /NDL /NJH /NJS /nc /ns /np | Out-Null
     if ($LASTEXITCODE -ge 8) {
       throw "robocopy failed for $($app.Name) (exit $LASTEXITCODE)"
+    }
+    $nmSrc = Join-Path $app.AppDir "node_modules"
+    $nmDst = Join-Path $shortApp "node_modules"
+    if (Test-Path $nmDst) { Remove-Item $nmDst -Recurse -Force -ErrorAction SilentlyContinue }
+    cmd /c mklink /J "$nmDst" "$nmSrc" | Out-Null
+    if (-not (Test-Path $nmDst)) {
+      throw "Failed to junction node_modules into $shortApp"
     }
 
     # Point packaged JS at this machine LAN API (short-copy only; repo sources unchanged)

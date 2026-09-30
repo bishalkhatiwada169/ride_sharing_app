@@ -33,7 +33,7 @@ type RecentItem = {
   longitude: number;
 };
 
-export function DestinationSearchScreen({navigation}: Props) {
+export function DestinationSearchScreen({navigation, route}: Props) {
   const insets = useSafeAreaInsets();
   const {session} = useAuth();
   const location = usePassengerLocation(true);
@@ -161,6 +161,7 @@ export function DestinationSearchScreen({navigation}: Props) {
       destinationSecondary: place.secondary,
       dropoffLat: lat,
       dropoffLng: lng,
+      preferredVehicle: route.params?.preferredVehicle,
     });
   }
 

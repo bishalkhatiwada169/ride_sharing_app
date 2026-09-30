@@ -159,12 +159,13 @@ export function DownloadsPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <h1 className="font-[family-name:var(--font-display)] text-3xl text-[var(--color-ink)] sm:text-4xl">
-        Install the apps
+        Install Ride
       </h1>
       <p className="mt-2 max-w-2xl text-[var(--color-ink-soft)]">
-        On the same Wi‑Fi as this server, scan a QR code or open the link on
-        your Android phone. You may need to allow “Install unknown apps” for
-        this browser.
+        One Android app for both passenger and driver. On the same Wi‑Fi as
+        this server, scan the QR code or open the link, install, then choose
+        your role in the app. You may need to allow “Install unknown apps”
+        for this browser.
       </p>
 
       {catalog.isLoading && (
@@ -191,7 +192,7 @@ export function DownloadsPage() {
             )}
           </div>
 
-          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <div className="mt-8 grid gap-6 lg:grid-cols-1 lg:max-w-xl">
             {catalog.data.apps.map((app) => {
               const primary = app.downloadUrls[0];
               return (
@@ -203,7 +204,8 @@ export function DownloadsPage() {
                     {app.label}
                   </h2>
                   <p className="mt-1 text-sm text-[var(--color-ink-soft)]">
-                    {app.filename} · {formatBytes(app.sizeBytes)}
+                    Choose Passenger or Driver after install · {app.filename} ·{" "}
+                    {formatBytes(app.sizeBytes)}
                     {app.modifiedAt
                       ? ` · ${new Date(app.modifiedAt).toLocaleString()}`
                       : ""}

@@ -1,15 +1,16 @@
 # Local APK drop folder for LAN installs
 
-Place **release** builds here (or run `.\scripts\publish-apks.ps1` from the repo root).
-Debug APKs need Metro; the publish script builds release APKs with the JS bundle
-and points the API at your LAN IP.
+Place a **release** build here (or run `.\scripts\publish-apks.ps1` from the repo root).
+
+The product is **one Android app** with passenger and driver roles inside.
 
 | File | App |
 |------|-----|
-| `passenger.apk` | Passenger mobile |
-| `driver.apk` | Driver mobile |
+| `passenger.apk` | Unified Ride app (passenger + driver) |
 
-The backend serves them at `/downloads/apk/passenger.apk` and `/downloads/apk/driver.apk`.
-Public page: `/downloads` (QR codes, no login).
+`driver.apk` is legacy and is no longer listed on the public downloads page.
+
+The backend serves the install at `/downloads/apk/passenger.apk`.
+Public page: `/downloads` (QR code, no login).
 
 Do not commit APK binaries.

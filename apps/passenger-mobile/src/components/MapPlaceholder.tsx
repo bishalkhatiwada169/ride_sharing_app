@@ -10,6 +10,7 @@ import {Platform, Pressable, StyleSheet, Text, View} from 'react-native';
 import MapView, {
   Circle,
   Marker,
+  Polyline,
   PROVIDER_GOOGLE,
   type Region,
 } from 'react-native-maps';
@@ -36,11 +37,33 @@ const COARSE_DELTAS = {
 
 const FOLLOW_MOVE_THRESHOLD_M = 12;
 
+/** Muted map (Pathao “searching” style). */
+const SEARCHING_MAP_STYLE = [
+  {elementType: 'geometry', stylers: [{color: '#1d1d1d'}]},
+  {elementType: 'labels.text.fill', stylers: [{color: '#746855'}]},
+  {elementType: 'labels.text.stroke', stylers: [{color: '#242424'}]},
+  {
+    featureType: 'poi.park',
+    elementType: 'geometry',
+    stylers: [{color: '#263c3f'}],
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry',
+    stylers: [{color: '#38414e'}],
+  },
+  {
+    featureType: 'water',
+    elementType: 'geometry',
+    stylers: [{color: '#17263c'}],
+  },
+];
+
 export type MapPoint = {
   latitude: number;
   longitude: number;
   title?: string;
-  kind?: 'pickup' | 'dropoff';
+  kind?: 'pickup' | 'dropoff' | 'driver';
 };
 
 export type MapHandle = {
@@ -56,12 +79,15 @@ type Props = {
   locationEnabled?: boolean;
   controlsBottomOffset?: number;
   showLabel?: boolean;
-  /** When false, parent can render FloatingMapButton + call ref.recenter(). */
   showRecenterButton?: boolean;
   markers?: MapPoint[];
-  /** When set, camera frames these points (pickup + destination). */
   fitToMarkers?: boolean;
   followUser?: boolean;
+  /** Draw route polyline between first pickup and dropoff (or all points). */
+  showRoute?: boolean;
+  /** Pathao searching state — desaturated map. */
+  searchingStyle?: boolean;
+  showsUserLocation?: boolean;
 };
 
 function distanceMeters(
@@ -80,6 +106,42 @@ function distanceMeters(
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+function MapMarkerBubble({
+  title,
+  kind,
+}: {
+  title?: string;
+  kind?: MapPoint['kind'];
+}) {
+  const isDrop = kind === 'dropoff';
+  const isDriver = kind === 'driver';
+  return (
+    <View style={markerStyles.wrap}>
+      {title ? (
+        <View style={markerStyles.bubble}>
+          <Text style={markerStyles.bubbleText} numberOfLines={1}>
+            {title}
+            {isDrop || kind === 'pickup' ? ' ›' : ''}
+          </Text>
+        </View>
+      ) : null}
+      {isDriver ? (
+        <View style={markerStyles.driver}>
+          <View style={markerStyles.driverDot} />
+        </View>
+      ) : isDrop ? (
+        <View style={markerStyles.pin}>
+          <View style={markerStyles.pinInner} />
+        </View>
+      ) : (
+        <View style={markerStyles.pickup}>
+          <View style={markerStyles.pickupArm} />
+        </View>
+      )}
+    </View>
+  );
+}
+
 export const MapPlaceholder = forwardRef<MapHandle, Props>(
   function MapPlaceholder(
     {
@@ -93,6 +155,9 @@ export const MapPlaceholder = forwardRef<MapHandle, Props>(
       markers,
       fitToMarkers = false,
       followUser = true,
+      showRoute = false,
+      searchingStyle = false,
+      showsUserLocation,
     },
     ref,
   ) {
@@ -109,6 +174,8 @@ export const MapPlaceholder = forwardRef<MapHandle, Props>(
     const location = usePassengerLocation(locationEnabled);
     const hasPermission = location.permission === 'granted';
     const coords = location.coords;
+    const showUser =
+      showsUserLocation != null ? showsUserLocation : hasPermission;
 
     const fitPoints = useCallback((points: MapPoint[]) => {
       if (!mapRef.current || points.length === 0) {
@@ -280,6 +347,17 @@ export const MapPlaceholder = forwardRef<MapHandle, Props>(
     const showAccuracyRing =
       hasPermission && accuracy != null && accuracy >= 25 && accuracy <= 250;
 
+    const routePoints = (markers ?? []).filter(
+      m => m.kind === 'pickup' || m.kind === 'dropoff' || m.kind === 'driver',
+    );
+    const polylineCoords =
+      showRoute && routePoints.length >= 2
+        ? routePoints.map(p => ({
+            latitude: p.latitude,
+            longitude: p.longitude,
+          }))
+        : null;
+
     return (
       <View
         style={[
@@ -293,17 +371,18 @@ export const MapPlaceholder = forwardRef<MapHandle, Props>(
           style={StyleSheet.absoluteFill}
           provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
           initialRegion={FALLBACK_REGION}
+          customMapStyle={searchingStyle ? SEARCHING_MAP_STYLE : undefined}
           scrollEnabled
           zoomEnabled
           rotateEnabled={false}
           pitchEnabled={false}
-          showsUserLocation={hasPermission}
+          showsUserLocation={showUser && !searchingStyle}
           showsMyLocationButton={false}
           showsCompass={false}
           toolbarEnabled={false}
           moveOnMarkerPress={false}
           onPanDrag={locationEnabled ? onPanDrag : undefined}>
-          {showAccuracyRing && coords ? (
+          {showAccuracyRing && coords && !searchingStyle ? (
             <Circle
               center={{
                 latitude: coords.latitude,
@@ -315,18 +394,27 @@ export const MapPlaceholder = forwardRef<MapHandle, Props>(
               fillColor={colors.accuracyFill}
             />
           ) : null}
+          {polylineCoords ? (
+            <Polyline
+              coordinates={polylineCoords}
+              strokeColor={colors.routeLine}
+              strokeWidth={4}
+              lineCap="round"
+              lineJoin="round"
+            />
+          ) : null}
           {(markers ?? []).map((m, i) => (
             <Marker
-              key={`${m.kind ?? 'm'}-${i}-${m.latitude}-${m.longitude}`}
+              key={`${m.kind ?? 'm'}-${i}-${m.latitude.toFixed(5)}-${m.longitude.toFixed(5)}`}
               coordinate={{
                 latitude: m.latitude,
                 longitude: m.longitude,
               }}
               title={m.title}
-              pinColor={
-                m.kind === 'dropoff' ? colors.text : colors.primary
-              }
-            />
+              anchor={{x: 0.5, y: 1}}
+              tracksViewChanges={false}>
+              <MapMarkerBubble title={m.title} kind={m.kind} />
+            </Marker>
           ))}
         </MapView>
 
@@ -391,6 +479,74 @@ export const MapPlaceholder = forwardRef<MapHandle, Props>(
     );
   },
 );
+
+const markerStyles = StyleSheet.create({
+  wrap: {alignItems: 'center', maxWidth: 160},
+  bubble: {
+    backgroundColor: '#FFF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginBottom: 6,
+    ...elevation.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  bubbleText: {
+    ...typography.caption,
+    color: colors.text,
+    fontWeight: '600',
+    maxWidth: 140,
+  },
+  pickup: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.pickupMarker,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickupArm: {
+    width: 10,
+    height: 14,
+    borderRadius: 5,
+    backgroundColor: '#FFF',
+  },
+  pin: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.dropoffMarker,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#FFF',
+    ...elevation.sm,
+  },
+  pinInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFF',
+  },
+  driver: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.driverMarker,
+    borderWidth: 3,
+    borderColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...elevation.md,
+  },
+  driverDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FFF',
+  },
+});
 
 const styles = StyleSheet.create({
   box: {

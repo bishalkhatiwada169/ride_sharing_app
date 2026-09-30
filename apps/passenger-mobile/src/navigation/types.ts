@@ -27,8 +27,11 @@ export type RootStackParamList = {
         destinationSecondary?: string;
         dropoffLat?: number;
         dropoffLng?: number;
+        preferredVehicle?: 'ECONOMY' | 'COMFORT' | 'XL';
       };
-  DestinationSearch: undefined;
+  DestinationSearch:
+    | undefined
+    | {preferredVehicle?: 'ECONOMY' | 'COMFORT' | 'XL'};
   ActiveRide: {rideId: string};
   RideDetail: {rideId: string};
   Rating: {rideId: string};

@@ -68,14 +68,15 @@ Full Windows notes: [docs/SETUP_WINDOWS.md](docs/SETUP_WINDOWS.md)
 
 Passenger OTP uses mock SMS (code printed in backend logs).
 
-### LAN APK installs (passenger / driver)
+### LAN APK installs (unified Ride app)
 
 ```powershell
-.\scripts\publish-apks.ps1          # build debug APKs → artifacts/apks/
-# Backend running on :8080, then open Admin → Downloads
+.\scripts\publish-apks.ps1          # builds → artifacts/apks/passenger.apk
+# Backend running on :8080, then open:
+# http://<LAN-IP>:8080/downloads
 ```
 
-Phones on the same Wi‑Fi scan the QR (or open the LAN link). Allow Windows Firewall for TCP 8080 if the phone cannot reach the PC.
+One Android app — choose Passenger or Driver after install. Same Wi‑Fi required; allow Windows Firewall TCP 8080 if the phone cannot reach the PC.
 
 ---
 

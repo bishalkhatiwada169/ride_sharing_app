@@ -39,6 +39,20 @@ export function getRide(token: string, id: string) {
   return apiRequest<Ride>(`/rides/${id}`, {token});
 }
 
+export type DriverLocation = {
+  driverUserId: string;
+  lat: number;
+  lng: number;
+  updatedAt: string;
+};
+
+/** Live driver position for an assigned ride (passenger or driver). */
+export function getDriverLocation(token: string, rideId: string) {
+  return apiRequest<DriverLocation>(`/rides/${rideId}/driver-location`, {
+    token,
+  });
+}
+
 export function listRides(token: string) {
   return apiRequest<Ride[]>('/rides', {token});
 }

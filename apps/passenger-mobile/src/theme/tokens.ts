@@ -1,64 +1,67 @@
 /**
- * Premium Kathmandu 2.0 — design system tokens.
- * Deep neutrals + warm marigold. Atmosphere over decoration.
+ * Pathao-inspired ride UI — light surfaces, bold red CTAs, Nepali city feel.
  */
 
 export const colors = {
-  // Brand
-  primary: '#F2B84B',
-  primaryPressed: '#D49A2E',
-  primaryBright: '#FFC85C',
-  primaryDark: '#D49A2E',
-  primaryMuted: 'rgba(242, 184, 75, 0.14)',
+  // Brand (Pathao red)
+  primary: '#E31C23',
+  primaryPressed: '#C4161C',
+  primaryBright: '#FF3B42',
+  primaryDark: '#B01016',
+  primaryMuted: 'rgba(227, 28, 35, 0.10)',
 
-  // Surfaces (layered depth)
-  background: '#0B0D12',
-  elevatedBackground: '#0F1218',
-  secondary: '#12151C',
-  surface: '#12151C',
-  surfaceElevated: '#171B23',
-  card: '#171B23',
-  glass: 'rgba(18, 21, 28, 0.90)',
+  // Surfaces
+  background: '#F5F5F5',
+  elevatedBackground: '#FFFFFF',
+  secondary: '#FFFFFF',
+  surface: '#FFFFFF',
+  surfaceElevated: '#FFFFFF',
+  card: '#FFFFFF',
+  glass: 'rgba(255, 255, 255, 0.94)',
 
   // Text
-  text: '#F7F3EA',
-  textPrimary: '#F7F3EA',
-  textSecondary: '#B9B5AC',
-  textMuted: '#77756F',
-  textOnPrimary: '#0B0D12',
+  text: '#1A1A1A',
+  textPrimary: '#1A1A1A',
+  textSecondary: '#5C5C5C',
+  textMuted: '#8A8A8A',
+  textOnPrimary: '#FFFFFF',
 
   // Lines / overlays
-  border: 'rgba(247, 243, 234, 0.10)',
-  borderStrong: 'rgba(247, 243, 234, 0.18)',
-  overlay: 'rgba(11, 13, 18, 0.42)',
-  mapOverlay: 'rgba(18, 21, 28, 0.92)',
+  border: 'rgba(0, 0, 0, 0.08)',
+  borderStrong: 'rgba(0, 0, 0, 0.14)',
+  overlay: 'rgba(0, 0, 0, 0.35)',
+  mapOverlay: 'rgba(255, 255, 255, 0.94)',
 
-  // Status (restrained)
-  success: '#5ECF9A',
-  successMuted: 'rgba(94, 207, 154, 0.14)',
-  warning: '#F2B84B',
-  warningMuted: 'rgba(242, 184, 75, 0.14)',
-  error: '#E86A5C',
-  errorMuted: 'rgba(232, 106, 92, 0.14)',
+  // Status
+  success: '#1B9E5A',
+  successMuted: 'rgba(27, 158, 90, 0.12)',
+  warning: '#E6A100',
+  warningMuted: 'rgba(230, 161, 0, 0.14)',
+  error: '#E31C23',
+  errorMuted: 'rgba(227, 28, 35, 0.12)',
 
   // Map
-  mapPlaceholder: '#12151C',
-  mapPlaceholderInk: '#77756F',
-  accuracyFill: 'rgba(242, 184, 75, 0.12)',
-  accuracyStroke: 'rgba(242, 184, 75, 0.4)',
+  mapPlaceholder: '#E8E8E8',
+  mapPlaceholderInk: '#8A8A8A',
+  accuracyFill: 'rgba(227, 28, 35, 0.10)',
+  accuracyStroke: 'rgba(227, 28, 35, 0.35)',
+  routeLine: '#2B2B2B',
+  pickupMarker: '#1A1A1A',
+  dropoffMarker: '#E31C23',
+  driverMarker: '#E31C23',
 
-  // Compat aliases (do not use in new code)
-  mist: '#171B23',
-  fog: '#0B0D12',
-  ink: '#F7F3EA',
-  inkSoft: '#B9B5AC',
-  line: 'rgba(247, 243, 234, 0.10)',
-  accent: '#F2B84B',
-  accentHover: '#D49A2E',
-  accentMuted: 'rgba(242, 184, 75, 0.14)',
-  warn: '#F2B84B',
-  danger: '#E86A5C',
-  dangerMuted: 'rgba(232, 106, 92, 0.14)',
+  // Compat aliases
+  mist: '#F0F0F0',
+  fog: '#F5F5F5',
+  ink: '#1A1A1A',
+  inkSoft: '#5C5C5C',
+  line: 'rgba(0, 0, 0, 0.08)',
+  accent: '#E31C23',
+  accentHover: '#C4161C',
+  accentMuted: 'rgba(227, 28, 35, 0.10)',
+  warn: '#E6A100',
+  danger: '#E31C23',
+  dangerMuted: 'rgba(227, 28, 35, 0.12)',
 };
 
 export const spacing = {
@@ -72,15 +75,15 @@ export const spacing = {
 };
 
 export const radius = {
-  sm: 10,
-  md: 14,
-  lg: 18,
-  xl: 24,
-  sheet: 28,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  sheet: 20,
   pill: 999,
-  small: 10,
-  medium: 14,
-  large: 18,
+  small: 8,
+  medium: 12,
+  large: 16,
 };
 
 export const elevation = {
@@ -93,51 +96,51 @@ export const elevation = {
   },
   sm: {
     shadowColor: '#000',
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.08,
     shadowRadius: 6,
     shadowOffset: {width: 0, height: 2},
     elevation: 2,
   },
   md: {
     shadowColor: '#000',
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
     shadowOffset: {width: 0, height: 4},
-    elevation: 5,
+    elevation: 4,
   },
   lg: {
     shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
+    shadowOpacity: 0.16,
+    shadowRadius: 16,
     shadowOffset: {width: 0, height: 8},
-    elevation: 9,
+    elevation: 8,
   },
 };
 
 export const typography = {
   display: {
     fontSize: 34,
-    fontWeight: '600' as const,
-    letterSpacing: -0.8,
+    fontWeight: '700' as const,
+    letterSpacing: -0.6,
   },
-  title: {fontSize: 24, fontWeight: '600' as const, letterSpacing: -0.4},
-  heading: {fontSize: 20, fontWeight: '600' as const, letterSpacing: -0.35},
-  section: {fontSize: 18, fontWeight: '600' as const, letterSpacing: -0.3},
-  subtitle: {fontSize: 17, fontWeight: '500' as const},
-  cardTitle: {fontSize: 15, fontWeight: '600' as const},
+  title: {fontSize: 24, fontWeight: '700' as const, letterSpacing: -0.3},
+  heading: {fontSize: 20, fontWeight: '700' as const, letterSpacing: -0.2},
+  section: {fontSize: 18, fontWeight: '700' as const, letterSpacing: -0.2},
+  subtitle: {fontSize: 17, fontWeight: '600' as const},
+  cardTitle: {fontSize: 15, fontWeight: '700' as const},
   body: {fontSize: 16, fontWeight: '400' as const},
-  bodyStrong: {fontSize: 16, fontWeight: '500' as const},
+  bodyStrong: {fontSize: 16, fontWeight: '600' as const},
   secondary: {fontSize: 14, fontWeight: '400' as const},
   caption: {fontSize: 12, fontWeight: '400' as const},
-  label: {fontSize: 11, fontWeight: '600' as const, letterSpacing: 0.6},
-  button: {fontSize: 16, fontWeight: '600' as const, letterSpacing: 0.15},
-  price: {fontSize: 30, fontWeight: '600' as const, letterSpacing: -0.6},
-  numeric: {fontSize: 22, fontWeight: '600' as const, letterSpacing: -0.3},
+  label: {fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.4},
+  button: {fontSize: 15, fontWeight: '700' as const, letterSpacing: 0.4},
+  price: {fontSize: 28, fontWeight: '700' as const, letterSpacing: -0.4},
+  numeric: {fontSize: 22, fontWeight: '700' as const, letterSpacing: -0.2},
   brand: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    letterSpacing: 3.2,
-    textTransform: 'uppercase' as const,
+    fontSize: 20,
+    fontWeight: '800' as const,
+    letterSpacing: -0.4,
+    textTransform: 'none' as const,
   },
 };
 

@@ -9,7 +9,10 @@ import {
   View,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {MapPlaceholder} from '../../components/MapPlaceholder';
+import {
+  MapPlaceholder,
+  type MapPoint,
+} from '../../components/MapPlaceholder';
 import {BottomSheet} from '../../components/ui/Sheet';
 import {Button} from '../../components/ui/Button';
 import {BrandMark} from '../../components/ui/BrandMark';
@@ -114,6 +117,14 @@ export function DriverHomeScreen() {
   const [online, setOnline] = useState(false);
   const [offers, setOffers] = useState<EnrichedOffer[]>([]);
   const [ride, setRide] = useState<DriverRide | null>(null);
+  const [tripPoints, setTripPoints] = useState<{
+    pickupLat: number;
+    pickupLng: number;
+    dropoffLat: number;
+    dropoffLng: number;
+    pickupLabel?: string;
+    dropoffLabel?: string;
+  } | null>(null);
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [toggling, setToggling] = useState(false);
@@ -124,13 +135,109 @@ export function DriverHomeScreen() {
 
   const hasDriverRole = !!session?.user.roles?.includes('DRIVER');
   const rideActive = !!ride && !isTerminalRide(ride.status as RideStatus);
+  const recoverInFlight = useRef(false);
 
-  const refreshOffers = useCallback(async () => {
+  const applyRideDetail = useCallback(
+    (data: {
+      id: string;
+      status: string;
+      tripPin: string | null;
+      pickupLat: number;
+      pickupLng: number;
+      dropoffLat: number;
+      dropoffLng: number;
+      pickupAddress?: string | null;
+      dropoffAddress?: string | null;
+    }) => {
+      setRide({
+        id: data.id,
+        status: data.status,
+        tripPin: data.tripPin,
+      });
+      setTripPoints({
+        pickupLat: data.pickupLat,
+        pickupLng: data.pickupLng,
+        dropoffLat: data.dropoffLat,
+        dropoffLng: data.dropoffLng,
+        pickupLabel: data.pickupAddress ?? 'Passenger pickup',
+        dropoffLabel: data.dropoffAddress ?? 'Destination',
+      });
+      setStatus(humanRideStatus(data.status));
+      acceptLock.current = true;
+      setOffers([]);
+    },
+    [],
+  );
+
+  /**
+   * Auto-accept assigns the ride with no pending offer. Discover that trip via
+   * driver history so Listening… does not stick until relaunch.
+   */
+  const recoverActiveRide = useCallback(
+    async (isCancelled?: () => boolean): Promise<boolean> => {
+      if (
+        !session ||
+        !hasDriverRole ||
+        rideIdRef.current ||
+        recoverInFlight.current
+      ) {
+        return !!rideIdRef.current;
+      }
+      recoverInFlight.current = true;
+      try {
+        const history = await listDriverRides(session.accessToken);
+        if (isCancelled?.() || rideIdRef.current) {
+          return !!rideIdRef.current;
+        }
+        const active = history.find(r =>
+          isActiveRide(r.status as RideStatus),
+        );
+        if (!active) {
+          return false;
+        }
+        try {
+          const detail = await getRide(session.accessToken, active.id);
+          if (isCancelled?.() || rideIdRef.current) {
+            return !!rideIdRef.current;
+          }
+          applyRideDetail(detail);
+        } catch {
+          if (isCancelled?.()) {
+            return false;
+          }
+          setRide({
+            id: active.id,
+            status: active.status,
+            tripPin: active.tripPin,
+          });
+          setOffers([]);
+          setStatus(humanRideStatus(active.status));
+          acceptLock.current = true;
+        }
+        return true;
+      } catch {
+        return false;
+      } finally {
+        recoverInFlight.current = false;
+      }
+    },
+    [session, hasDriverRole, applyRideDetail],
+  );
+
+  /** While listening: recover auto-accepted trips, then poll offers. */
+  const refreshListening = useCallback(async () => {
     if (!session || !online || rideIdRef.current) {
+      return;
+    }
+    const recovered = await recoverActiveRide();
+    if (recovered || rideIdRef.current) {
       return;
     }
     try {
       const raw = await pendingOffers(session.accessToken);
+      if (rideIdRef.current) {
+        return;
+      }
       const enriched = await Promise.all(
         raw.map(async o => {
           try {
@@ -145,11 +252,13 @@ export function DriverHomeScreen() {
           }
         }),
       );
-      setOffers(enriched);
+      if (!rideIdRef.current) {
+        setOffers(enriched);
+      }
     } catch {
       /* quiet poll */
     }
-  }, [session, online]);
+  }, [session, online, recoverActiveRide]);
 
   const refreshActiveRide = useCallback(async () => {
     const rideId = rideIdRef.current;
@@ -158,22 +267,18 @@ export function DriverHomeScreen() {
     }
     try {
       const data = await getRide(session.accessToken, rideId);
-      setRide({
-        id: data.id,
-        status: data.status,
-        tripPin: data.tripPin,
-      });
-      setStatus(humanRideStatus(data.status));
+      applyRideDetail(data);
       if (isTerminalRide(data.status)) {
         setStatus("You're online and ready for requests");
         setRide(null);
+        setTripPoints(null);
         setPin('');
         acceptLock.current = false;
       }
     } catch {
       /* quiet */
     }
-  }, [session]);
+  }, [session, applyRideDetail]);
 
   useEffect(() => {
     if (!online || rideActive) {
@@ -182,10 +287,10 @@ export function DriverHomeScreen() {
       }
       return;
     }
-    void refreshOffers();
-    const id = setInterval(() => void refreshOffers(), 3500);
+    void refreshListening();
+    const id = setInterval(() => void refreshListening(), 3500);
     return () => clearInterval(id);
-  }, [online, rideActive, refreshOffers]);
+  }, [online, rideActive, refreshListening]);
 
   useEffect(() => {
     if (!rideActive) {
@@ -204,11 +309,11 @@ export function DriverHomeScreen() {
       if (rideActive) {
         void refreshActiveRide();
       } else if (online) {
-        void refreshOffers();
+        void refreshListening();
       }
     });
     return () => sub.remove();
-  }, [online, rideActive, refreshActiveRide, refreshOffers]);
+  }, [online, rideActive, refreshActiveRide, refreshListening]);
 
   useEffect(() => {
     if (!session || !online || !location.coords) {
@@ -221,7 +326,7 @@ export function DriverHomeScreen() {
     ).catch(() => undefined);
   }, [session, online, location.coords]);
 
-  /** Recover assigned trip after reload / auto-accept (no pending offer card). */
+  /** Cold start / role load: sync online flag and recover any assigned trip. */
   useEffect(() => {
     if (!session || !hasDriverRole || rideActive) {
       return;
@@ -230,26 +335,15 @@ export function DriverHomeScreen() {
     void (async () => {
       try {
         const profile = await getDriverProfile(session.accessToken);
-        if (!cancelled) {
-          setOnline(!!profile.online);
-          if (profile.online) {
-            setStatus("You're online and ready for requests");
-          }
-        }
-        const history = await listDriverRides(session.accessToken);
         if (cancelled) {
           return;
         }
-        const active = history.find(r => isActiveRide(r.status as RideStatus));
-        if (active) {
-          setRide({
-            id: active.id,
-            status: active.status,
-            tripPin: active.tripPin,
-          });
-          setOffers([]);
-          setStatus(humanRideStatus(active.status));
-          acceptLock.current = true;
+        setOnline(!!profile.online);
+        if (profile.online) {
+          setStatus("You're online and ready for requests");
+        }
+        if (!cancelled) {
+          await recoverActiveRide(() => cancelled);
         }
       } catch {
         /* quiet */
@@ -258,7 +352,7 @@ export function DriverHomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [session, hasDriverRole, rideActive]);
+  }, [session, hasDriverRole, rideActive, recoverActiveRide]);
 
   async function onBecomeDriver() {
     if (!session) {
@@ -321,9 +415,14 @@ export function DriverHomeScreen() {
     setBusy(true);
     try {
       const next = await acceptOffer(session.accessToken, offer.id);
-      setRide(next);
-      setOffers([]);
-      setStatus(humanRideStatus(next.status));
+      try {
+        const detail = await getRide(session.accessToken, next.id);
+        applyRideDetail(detail);
+      } catch {
+        setRide(next);
+        setOffers([]);
+        setStatus(humanRideStatus(next.status));
+      }
     } catch (e) {
       Alert.alert('Accept failed', parseApiError(e));
       acceptLock.current = false;
@@ -345,12 +444,18 @@ export function DriverHomeScreen() {
       const next = await action();
       if (clearAfter || isTerminalRide(next.status as RideStatus)) {
         setRide(null);
+        setTripPoints(null);
         setPin('');
         acceptLock.current = false;
         setStatus("You're online and ready for requests");
       } else {
-        setRide(next);
-        setStatus(humanRideStatus(next.status));
+        try {
+          const detail = await getRide(session.accessToken, next.id);
+          applyRideDetail(detail);
+        } catch {
+          setRide(next);
+          setStatus(humanRideStatus(next.status));
+        }
       }
     } catch (e) {
       Alert.alert(label, parseApiError(e));
@@ -366,8 +471,38 @@ export function DriverHomeScreen() {
         locationEnabled
         showLabel={false}
         showRecenterButton={false}
+        followUser={!rideActive}
+        fitToMarkers={rideActive && !!tripPoints}
+        showRoute={rideActive && !!tripPoints}
+        markers={
+          tripPoints
+            ? ([
+                {
+                  latitude: tripPoints.pickupLat,
+                  longitude: tripPoints.pickupLng,
+                  title: tripPoints.pickupLabel ?? 'Passenger',
+                  kind: 'pickup',
+                },
+                {
+                  latitude: tripPoints.dropoffLat,
+                  longitude: tripPoints.dropoffLng,
+                  title: tripPoints.dropoffLabel ?? 'Destination',
+                  kind: 'dropoff',
+                },
+                ...(location.coords
+                  ? [
+                      {
+                        latitude: location.coords.latitude,
+                        longitude: location.coords.longitude,
+                        title: 'You',
+                        kind: 'driver' as const,
+                      },
+                    ]
+                  : []),
+              ] as MapPoint[])
+            : undefined
+        }
       />
-      <View style={styles.edge} pointerEvents="none" />
 
       <View style={[styles.top, {paddingTop: insets.top + spacing.sm}]}>
         <BrandMark size="sm" />
@@ -452,6 +587,16 @@ export function DriverHomeScreen() {
               <Text style={styles.section}>Active trip</Text>
               <Text style={styles.tripStatus}>
                 {humanRideStatus(ride.status)}
+              </Text>
+              {tripPoints ? (
+                <LocationRow
+                  compact
+                  pickupLabel={tripPoints.pickupLabel ?? 'Passenger'}
+                  destinationLabel={tripPoints.dropoffLabel ?? 'Destination'}
+                />
+              ) : null}
+              <Text style={styles.trackHint}>
+                Passenger pickup is marked on the map — navigate there
               </Text>
               {ride.status === 'DRIVER_ACCEPTED' ? (
                 <Button
@@ -613,6 +758,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   tripStatus: {...typography.bodyStrong, color: colors.text},
+  trackHint: {...typography.caption, color: colors.primary, fontWeight: '600'},
   pin: {
     ...typography.body,
     color: colors.text,

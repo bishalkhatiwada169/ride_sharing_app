@@ -59,13 +59,14 @@ function MainTabs() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: {...typography.label, textTransform: 'none'},
+        tabBarLabelStyle: {...typography.label, textTransform: 'uppercase'},
         tabBarStyle: {
           borderTopColor: colors.border,
           backgroundColor: colors.surface,
           height: 64,
           paddingBottom: 8,
           paddingTop: 6,
+          elevation: 8,
         },
         tabBarIcon: ({color}) => (
           <Icon name={TAB_ICONS[route.name]} size={22} color={color} />
@@ -75,9 +76,9 @@ function MainTabs() {
       <Tab.Screen
         name="History"
         component={HistoryScreen}
-        options={{title: 'Trips'}}
+        options={{title: 'History'}}
       />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{title: 'More'}} />
     </Tab.Navigator>
   );
 }

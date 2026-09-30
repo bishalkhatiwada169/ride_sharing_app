@@ -1,16 +1,28 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Alert, AppState, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  AppState,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {MapPlaceholder} from '../../components/MapPlaceholder';
+import {
+  MapPlaceholder,
+  type MapPoint,
+} from '../../components/MapPlaceholder';
 import {BottomSheet} from '../../components/ui/Sheet';
 import {Button} from '../../components/ui/Button';
 import {FloatingMapButton} from '../../components/ui/FloatingMapButton';
-import {LocationRow} from '../../components/ui/LocationRow';
-import {AnimatedStatus} from '../../components/ui/AnimatedStatus';
 import {ErrorState} from '../../components/ui/EmptyState';
 import {useAuth} from '../../state/AuthContext';
-import {cancelRide, getRide} from '../../services/ride-api';
+import {
+  cancelRide,
+  getDriverLocation,
+  getRide,
+} from '../../services/ride-api';
 import {createTripShare, triggerSos} from '../../services/safety-api';
 import {
   canCancelRide,
@@ -34,9 +46,22 @@ export function ActiveRideScreen({route, navigation}: Props) {
   const insets = useSafeAreaInsets();
   const {session} = useAuth();
   const [ride, setRide] = useState<Ride | null>(null);
+  const [driverLoc, setDriverLoc] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const completedNav = useRef(false);
+
+  const searching =
+    !!ride &&
+    (ride.status === 'REQUESTED' || ride.status === 'SEARCHING_DRIVER');
+  const tracking =
+    !!ride &&
+    isActiveRide(ride.status) &&
+    !searching &&
+    !!ride.driverUserId;
 
   const load = useCallback(async () => {
     if (!session) {
@@ -55,6 +80,18 @@ export function ActiveRideScreen({route, navigation}: Props) {
     }
   }, [session, rideId, navigation]);
 
+  const loadDriver = useCallback(async () => {
+    if (!session || !tracking) {
+      return;
+    }
+    try {
+      const loc = await getDriverLocation(session.accessToken, rideId);
+      setDriverLoc({lat: loc.lat, lng: loc.lng});
+    } catch {
+      /* quiet — driver may not have pinged yet */
+    }
+  }, [session, rideId, tracking]);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -68,22 +105,32 @@ export function ActiveRideScreen({route, navigation}: Props) {
   }, [ride?.status, load]);
 
   useEffect(() => {
+    if (!tracking) {
+      return;
+    }
+    void loadDriver();
+    const id = setInterval(() => void loadDriver(), 3000);
+    return () => clearInterval(id);
+  }, [tracking, loadDriver]);
+
+  useEffect(() => {
     const sub = AppState.addEventListener('change', next => {
       if (next === 'active') {
         void load();
+        void loadDriver();
       }
     });
     return () => sub.remove();
-  }, [load]);
+  }, [load, loadDriver]);
 
   async function onCancel() {
     if (!session || !ride) {
       return;
     }
-    Alert.alert('Cancel this ride?', 'This cannot be undone.', [
-      {text: 'Keep ride', style: 'cancel'},
+    Alert.alert('Cancel this request?', 'This cannot be undone.', [
+      {text: 'Keep', style: 'cancel'},
       {
-        text: 'Cancel',
+        text: 'Cancel request',
         style: 'destructive',
         onPress: async () => {
           setBusy(true);
@@ -133,21 +180,63 @@ export function ActiveRideScreen({route, navigation}: Props) {
     }
     setBusy(true);
     try {
-      const share = await createTripShare(session.accessToken, ride.id);
+      await createTripShare(session.accessToken, ride.id);
       Alert.alert(
         'Trip share ready',
-        'A live share link was created. Open it from Safety or share it with a trusted contact.',
+        'A live share link was created for a trusted contact.',
       );
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.info('[trip-share]', share.sharePath);
-      }
     } catch (e) {
       Alert.alert('Share failed', parseApiError(e));
     } finally {
       setBusy(false);
     }
   }
+
+  const markers = useMemo(() => {
+    if (!ride) {
+      return undefined;
+    }
+    const list: MapPoint[] = [];
+    if (searching) {
+      list.push({
+        latitude: ride.pickupLat,
+        longitude: ride.pickupLng,
+        title: ride.pickupAddress ?? 'You',
+        kind: 'pickup',
+      });
+      return list;
+    }
+    list.push({
+      latitude: ride.pickupLat,
+      longitude: ride.pickupLng,
+      title: ride.pickupAddress ?? 'Pickup',
+      kind: 'pickup',
+    });
+    list.push({
+      latitude: ride.dropoffLat,
+      longitude: ride.dropoffLng,
+      title: ride.dropoffAddress ?? 'Destination',
+      kind: 'dropoff',
+    });
+    if (driverLoc) {
+      list.push({
+        latitude: driverLoc.lat,
+        longitude: driverLoc.lng,
+        title: 'Driver',
+        kind: 'driver',
+      });
+    }
+    return list;
+  }, [ride, searching, driverLoc]);
+
+  const vehicleLabel =
+    ride?.vehicleTypeRequested === 'ECONOMY'
+      ? 'Bike'
+      : ride?.vehicleTypeRequested === 'COMFORT'
+        ? 'Car Lite'
+        : ride?.vehicleTypeRequested === 'XL'
+          ? 'Car'
+          : ride?.vehicleTypeRequested;
 
   if (error && !ride) {
     return (
@@ -158,33 +247,6 @@ export function ActiveRideScreen({route, navigation}: Props) {
     );
   }
 
-  const vehicleLabel =
-    ride?.vehicleTypeRequested === 'ECONOMY'
-      ? 'Economy'
-      : ride?.vehicleTypeRequested === 'COMFORT'
-        ? 'Comfort'
-        : ride?.vehicleTypeRequested === 'XL'
-          ? 'XL'
-          : ride?.vehicleTypeRequested;
-
-  const markers =
-    ride != null
-      ? [
-          {
-            latitude: ride.pickupLat,
-            longitude: ride.pickupLng,
-            title: 'Pickup',
-            kind: 'pickup' as const,
-          },
-          {
-            latitude: ride.dropoffLat,
-            longitude: ride.dropoffLng,
-            title: ride.dropoffAddress ?? 'Destination',
-            kind: 'dropoff' as const,
-          },
-        ]
-      : undefined;
-
   return (
     <View style={styles.root}>
       <MapPlaceholder
@@ -192,12 +254,13 @@ export function ActiveRideScreen({route, navigation}: Props) {
         locationEnabled={!!ride && isActiveRide(ride.status)}
         showLabel={false}
         showRecenterButton={false}
-        followUser={!ride}
-        fitToMarkers={!!ride}
+        followUser={false}
+        fitToMarkers={!!markers?.length}
+        showRoute={!searching && !!markers && markers.length >= 2}
+        searchingStyle={searching}
+        showsUserLocation={!searching}
         markers={markers}
       />
-
-      <View style={styles.edgeBottom} pointerEvents="none" />
 
       <View style={[styles.top, {paddingTop: insets.top + spacing.sm}]}>
         <FloatingMapButton
@@ -212,9 +275,25 @@ export function ActiveRideScreen({route, navigation}: Props) {
         <BottomSheet floating>
           {!ride ? (
             <Text style={styles.quiet}>Loading your trip…</Text>
+          ) : searching ? (
+            <View style={styles.searching}>
+              <View style={styles.searchRow}>
+                <ActivityIndicator color={colors.primary} size="large" />
+                <Text style={styles.searchTitle}>
+                  Searching for {vehicleLabel ?? 'ride'}…
+                </Text>
+              </View>
+              <Button
+                label="CANCEL REQUEST"
+                variant="ghost"
+                onPress={onCancel}
+                loading={busy}
+                style={styles.cancelBtn}
+              />
+            </View>
           ) : (
             <>
-              <AnimatedStatus text={formatStatusLabel(ride.status)} />
+              <Text style={styles.status}>{formatStatusLabel(ride.status)}</Text>
 
               {ride.tripPin ? (
                 <View style={styles.pin}>
@@ -223,11 +302,16 @@ export function ActiveRideScreen({route, navigation}: Props) {
                 </View>
               ) : null}
 
-              <LocationRow
-                compact
-                pickupLabel={ride.pickupAddress ?? 'Current location'}
-                destinationLabel={ride.dropoffAddress ?? 'Destination'}
-              />
+              <View style={styles.locBlock}>
+                <Text style={styles.locLabel}>Pickup</Text>
+                <Text style={styles.locValue} numberOfLines={1}>
+                  {ride.pickupAddress ?? 'Current location'}
+                </Text>
+                <Text style={styles.locLabel}>Destination</Text>
+                <Text style={styles.locValue} numberOfLines={1}>
+                  {ride.dropoffAddress ?? 'Destination'}
+                </Text>
+              </View>
 
               <View style={styles.metaRow}>
                 {vehicleLabel ? (
@@ -245,24 +329,11 @@ export function ActiveRideScreen({route, navigation}: Props) {
                 ) : null}
               </View>
 
-              <View style={styles.driver}>
-                <Text style={styles.driverTitle}>
-                  {ride.status === 'SEARCHING_DRIVER' ||
-                  ride.status === 'REQUESTED'
-                    ? 'Looking for a nearby driver'
-                    : ride.driverUserId
-                      ? 'Driver assigned'
-                      : 'Looking for a nearby driver'}
-                </Text>
-                <Text style={styles.driverSub}>
-                  {ride.status === 'SEARCHING_DRIVER' ||
-                  ride.status === 'REQUESTED'
-                    ? 'Hang tight — we’ll update this when someone accepts'
-                    : ride.driverUserId
-                      ? 'Driver and vehicle details appear when available'
-                      : 'Hang tight — we’ll update this when someone accepts'}
-                </Text>
-              </View>
+              <Text style={styles.trackHint}>
+                {driverLoc
+                  ? 'Live: driver location on the map'
+                  : 'Waiting for driver location…'}
+              </Text>
 
               {isActiveRide(ride.status) ? (
                 <View style={styles.actions}>
@@ -284,7 +355,7 @@ export function ActiveRideScreen({route, navigation}: Props) {
               ) : null}
               {canCancelRide(ride.status) ? (
                 <Button
-                  label="Cancel ride"
+                  label="CANCEL REQUEST"
                   variant="ghost"
                   onPress={onCancel}
                   loading={busy}
@@ -307,14 +378,6 @@ export function ActiveRideScreen({route, navigation}: Props) {
 
 const styles = StyleSheet.create({
   root: {flex: 1, backgroundColor: colors.background},
-  edgeBottom: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 140,
-    backgroundColor: 'rgba(11, 13, 18, 0.2)',
-  },
   top: {
     position: 'absolute',
     left: 0,
@@ -325,6 +388,15 @@ const styles = StyleSheet.create({
   backFlip: {transform: [{rotate: '180deg'}], alignSelf: 'flex-start'},
   sheetWrap: {position: 'absolute', left: 0, right: 0, bottom: 0},
   quiet: {...typography.body, color: colors.textMuted},
+  searching: {gap: spacing.lg, paddingVertical: spacing.sm},
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  searchTitle: {...typography.section, color: colors.text, flex: 1},
+  cancelBtn: {minHeight: 48},
+  status: {...typography.section, color: colors.text},
   pin: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -336,16 +408,12 @@ const styles = StyleSheet.create({
   },
   pinLabel: {...typography.label, color: colors.textMuted},
   pinValue: {...typography.numeric, color: colors.primary},
+  locBlock: {gap: 4},
+  locLabel: {...typography.caption, color: colors.textMuted},
+  locValue: {...typography.bodyStrong, color: colors.text},
   metaRow: {flexDirection: 'row', flexWrap: 'wrap', gap: 4},
   meta: {...typography.secondary, color: colors.textMuted},
-  driver: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingTop: spacing.md,
-    gap: 4,
-  },
-  driverTitle: {...typography.cardTitle, color: colors.text},
-  driverSub: {...typography.caption, color: colors.textMuted, lineHeight: 18},
+  trackHint: {...typography.caption, color: colors.primary, fontWeight: '600'},
   actions: {flexDirection: 'row', gap: spacing.sm},
   flex: {flex: 1},
 });

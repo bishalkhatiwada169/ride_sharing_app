@@ -1,0 +1,14 @@
+## Copy to local.properties (gitignored) and fill in your DEVELOPMENT key.
+## Never commit the real key.
+##
+## Google Cloud Console:
+## 1. Enable only "Maps SDK for Android" for MAP-1.
+## 2. Create an API key restricted to Android apps:
+##    package: com.passengerapp
+##    SHA-1: your debug keystore fingerprint
+##
+## Generate debug SHA-1 (Windows example):
+##   keytool -list -v -keystore android/app/debug.keystore -alias androiddebugkey -storepass android -keypass android
+
+sdk.dir=C:\\Users\\YOUR_USER\\AppData\\Local\\Android\\Sdk
+GOOGLE_MAPS_ANDROID_API_KEY=

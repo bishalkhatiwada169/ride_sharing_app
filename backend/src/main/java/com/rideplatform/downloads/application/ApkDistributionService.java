@@ -21,16 +21,19 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Serves local-network APK distribution for passenger/driver debug builds.
+ * Serves local-network APK distribution for the unified Ride Android app
+ * (passenger + driver roles in one binary).
  * Files live on disk (not in the jar) under a configurable directory.
  */
 @Service
 public class ApkDistributionService {
 
-    public static final String PASSENGER_FILE = "passenger.apk";
+    /** Canonical LAN install binary (unified passenger + driver app). */
+    public static final String RIDE_FILE = "passenger.apk";
+    /** Legacy filename still accepted if present; not listed in the public catalog. */
     public static final String DRIVER_FILE = "driver.apk";
 
-    private static final Set<String> ALLOWED = Set.of(PASSENGER_FILE, DRIVER_FILE);
+    private static final Set<String> ALLOWED = Set.of(RIDE_FILE, DRIVER_FILE);
     private static final Pattern SAFE_NAME = Pattern.compile("^[a-z0-9][a-z0-9._-]*\\.apk$", Pattern.CASE_INSENSITIVE);
 
     private final Path downloadsDir;
@@ -70,8 +73,14 @@ public class ApkDistributionService {
         List<String> lanHosts = discoverLanIpv4();
         String preferredBase = resolvePublicBase(lanHosts);
         List<ApkItem> apps = new ArrayList<>();
-        apps.add(item("passenger", "Passenger app", PASSENGER_FILE, preferredBase, lanHosts));
-        apps.add(item("driver", "Driver app", DRIVER_FILE, preferredBase, lanHosts));
+        // One public install target — role (passenger/driver) is chosen inside the app.
+        apps.add(item(
+                "ride",
+                "Ride app (passenger + driver)",
+                RIDE_FILE,
+                preferredBase,
+                lanHosts
+        ));
         return new DownloadsCatalog(
                 preferredBase,
                 lanHosts,
